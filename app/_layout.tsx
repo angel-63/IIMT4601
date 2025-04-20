@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import React from 'react';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -53,6 +54,8 @@ function RootLayoutNav() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        {/* <Stack.Screen name="resrvation/confirmReservation" options={{ headerShown: false , title: 'Confirm Reservation', headerBackTitle: 'Back'}} />
+        <Stack.Screen name="resrvation/paymentSuccess" options={{ headerShown: false , title: 'Payment Success'}} /> */}
       </Stack>
     </ThemeProvider>
   );

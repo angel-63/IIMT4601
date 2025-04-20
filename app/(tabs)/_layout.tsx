@@ -1,11 +1,13 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, Platform } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import RoutePicker from '@/components/RoutePicker';
+import { useNavigation } from '@react-navigation/native';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -17,6 +19,7 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const navigation = useNavigation();
 
   return (
     <Tabs
@@ -29,8 +32,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Schedule',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
+          title: 'Tab One',
+          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
           headerRight: () => (
             <Link href="/modal" asChild>
               <Pressable>
@@ -47,20 +50,46 @@ export default function TabLayout() {
           ),
         }}
       />
+      
       <Tabs.Screen
-        name="two"
+        name="reservation/two"
         options={{
-          title: 'Reservation',
+          // title: 'Reservation',
+          headerTitle: () => <RoutePicker
+            onSelect={(routeId) => navigation.setParams({ selectedRouteId: routeId })}
+            />,
           tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
+          headerTitleContainerStyle: {
+            left: Platform.OS === 'ios' ? 0 : 16,
+            right: Platform.OS === 'ios' ? 0 : 16,
+          },
         }}
       />
+
       <Tabs.Screen
-        name="profile"
+        name="reservation/confirmReservation"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          href: null,
+          title: 'Confirm Reservation',
         }}
       />
+
+      <Tabs.Screen
+        name="reservation/paymentSuccess"
+        options={{
+          href: null,
+          title: 'Payment Success',
+        }}
+      />
+
+      <Tabs.Screen
+        name="routeInfo/routeDetail"
+        options={{
+          title: 'Schedule',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
+        }}
+      />
+
     </Tabs>
   );
 }
