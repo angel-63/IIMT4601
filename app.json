@@ -32,21 +32,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "66e82b11-b200-44b4-ab27-1c0e1fdd2923"
-      }
-    },
-    "owner": "vanwong1007",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/66e82b11-b200-44b4-ab27-1c0e1fdd2923"
     }
   }
 }
