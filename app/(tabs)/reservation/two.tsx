@@ -5,8 +5,8 @@ import CalendarPicker from '@/components/CalendarPicker';
 import TimePicker from '@/components/TimePicker';
 import SeatCounter from '@/components/SeatCounter';
 import LocationPicker from '@/components/LocationPicker';
-import RoutePicker from '@/components/RoutePicker';
-import { useState } from 'react';
+// import RoutePicker from '@/components/RoutePicker';
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function TabTwoScreen() {
@@ -14,6 +14,7 @@ export default function TabTwoScreen() {
   // const [pickUp, setPickUp] = useState('')
   // const [seatCount, setSeatCount] = useState(1);
   const params = useLocalSearchParams();
+  const API_BASE = 'http://192.168.1.78:3001'; // Use backend port
 
   const [form, setForm] = useState({
     route: params.selectedRouteId ? String(params.selectedRouteId) : '',
@@ -31,6 +32,12 @@ export default function TabTwoScreen() {
       pathname: '/reservation/confirmReservation',
       params: form
     });
+  //   useEffect(() => {
+      
+  //   const response = await post(
+  //     `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
+  // );
+  // })
   };
 
   return (

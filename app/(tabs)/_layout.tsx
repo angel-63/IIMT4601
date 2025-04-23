@@ -1,6 +1,6 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
+import { Link, Tabs, useLocalSearchParams } from 'expo-router';
 import { Pressable, Platform } from 'react-native';
 
 import Colors from '@/constants/Colors';
@@ -20,6 +20,8 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const navigation = useNavigation();
+  const params = useLocalSearchParams();
+  const { route_name } = useLocalSearchParams<{ route_name: string }>(); // Access route_name param
 
   return (
     <Tabs
@@ -54,7 +56,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reservation/two"
         options={{
-          // title: 'Reservation',
+          title: 'Reservation',
           headerTitle: () => <RoutePicker
             onSelect={(routeId) => navigation.setParams({ selectedRouteId: routeId })}
             />,
@@ -85,7 +87,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="routeInfo/routeDetail"
         options={{
-          title: 'Schedule',
+          href: null,
+          title: 'Reservation',
+          // headerTitle: () => route_name || 'Schedule',
           tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
         }}
       />

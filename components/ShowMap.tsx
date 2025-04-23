@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 interface MapProps {
     stops: Stop[];
     initialRegion?: Region;
-    initialSelectedId?: string;
+    selectedId?: string;
 }
 
 interface Stop {
@@ -40,16 +40,16 @@ interface Stop {
 // }
 // ]
 
-const ShowMap = ( { stops ,
-     initialRegion = {latitude: stops[0]?.latitude, // || stop nearest to gps location
-        longitude: stops[0]?.longitude,  // || stop nearest to gps location
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-        },
-      initialSelectedId = stops[0].stop_id }: MapProps) => {
+const ShowMap = ( { stops , initialRegion,
+    //  initialRegion = {latitude: stops[0]?.latitude, // || stop nearest to gps location
+    //     longitude: stops[0]?.longitude,  // || stop nearest to gps location
+    //     latitudeDelta: 0.008,
+    //     longitudeDelta: 0.008,
+    //     },
+      selectedId = stops[0]?.stop_id ?? '' }: MapProps) => {
     // Track selected stopID for display update
     // const [selectedStopId, setSelectedStopId] = useState('');
-    const [selectedStopId, setSelectedStopId] = useState(initialSelectedId);
+    const [selectedStopId, setSelectedStopId] = useState(selectedId || stops[0].stop_id);
     const [routeCoords, setRouteCoordinates] =  useState<Array<{ latitude: number; longitude: number }>>([]); // coords to draw polyline
     const [isLoadingRoute, setIsLoadingRoute] = useState(true);
     const mapRef = useRef<MapView>(null);
@@ -100,94 +100,104 @@ const ShowMap = ( { stops ,
         }
     };
 
-    // Initial callout
-    useEffect(() => {
-        // Show callout after a small delay when component mounts
-        const timer = setTimeout(() => {
-            if (markerRef.current) {
-                markerRef.current.showCallout();
-            }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, []);
-
     // Fetch route coordinates to draw polyline
     useEffect(() => {
         fetchRoute();
-    }, [stops]);
+    }, []);
 
-    // API to get route info
-    // useEffect(() => {
-        
-    // })
-    
+    // Synchronize selectedStopId with selectedId, update map region, show callout
+    useEffect(() => {
+        if (selectedId && selectedId !== selectedStopId) {
+        setSelectedStopId(selectedId);
+        const selectedStop = stops.find((stop) => stop.stop_id === selectedId);
+        if (selectedStop && mapRef.current) {
+            mapRef.current.animateToRegion(
+            {
+                latitude: selectedStop.latitude,
+                longitude: selectedStop.longitude,
+                latitudeDelta: 0.008,
+                longitudeDelta: 0.008,
+            },
+            500
+            );
+            // Trigger callout after animation
+            setTimeout(() => {
+            if (markerRef.current) {
+                markerRef.current.showCallout();
+            }
+            }, 600); // Delay to ensure animation completes
+        }
+        }
+    }, [selectedId, stops]);
+
+    // Show callout when selectedStopId changes
+    useEffect(() => {
+        const timer = setTimeout(() => {
+        if (markerRef.current) {
+            markerRef.current.showCallout();
+        }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [selectedStopId]);
     
     return (
-    <View style={styles.container}>
-        {!isLoadingRoute? (
-            <MapView 
-                ref={mapRef}
-                style={styles.map}
-                initialRegion={initialRegion}
-                zoomEnabled={true}
-            >
-                {/* add OSM to tile layer */}
-                <UrlTile
-                    urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-
-                {stops.map((stop) => (
-
-                    <Marker
-                        key={stop.stop_id}
-                        ref={stop.stop_id === selectedStopId ? markerRef : null}
-                        coordinate={{
-                            latitude: stop.latitude, 
-                            longitude: stop.longitude
-                        }}
-                        title={stop.name}
-                        // can change selected bus stop by pressing the pin
-                        onPress={() => {
-                            // animateToRegion(newRegion, 1000);
-                            setSelectedStopId(stop.stop_id);
-                            // setRegion({
-                            mapRef.current?.animateToRegion({
-                                longitude: stop.longitude,
-                                latitude: stop.latitude,
-                                latitudeDelta: 0.008,
-                                longitudeDelta: 0.008,
-                            });
-                        }}
-                    >
-                        <View style={styles.marker}>
-                            <FontAwesome 
-                                name="map-marker" 
-                                size={40} 
-                                color={selectedStopId === stop.stop_id ? '#FF4141' : '#FFC414'} 
-                            />
-                        </View>
-                    </Marker>
-                ))}
-
-                {routeCoords.length > 0 && (
-                    <Polyline
-                        coordinates={routeCoords}
-                        strokeColors={[
-                        'rgb(48,101,246)'
-                        ]}
-                        strokeWidth={4}
-                        lineCap='round'
-                    />
-                )}
-            </MapView>
-        ):(
-      <View style={styles.loadingOverlay}>
-        <ActivityIndicator size="large" color="#3065F6" />
+        <View style={styles.container}>
+        {!isLoadingRoute ? (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={initialRegion}
+            zoomEnabled={true}
+          >
+            <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            {stops.map((stop) => (
+              <Marker
+                key={stop.stop_id}
+                ref={stop.stop_id === selectedStopId ? markerRef : null}
+                coordinate={{
+                  latitude: stop.latitude,
+                  longitude: stop.longitude,
+                }}
+                title={stop.name}
+                onPress={() => {
+                  setSelectedStopId(stop.stop_id);
+                  mapRef.current?.animateToRegion(
+                    {
+                      longitude: stop.longitude,
+                      latitude: stop.latitude,
+                      latitudeDelta: 0.008,
+                      longitudeDelta: 0.008,
+                    },
+                    500
+                  );
+                }}
+              >
+                <View style={styles.marker}>
+                  <FontAwesome
+                    name="map-marker"
+                    size={40}
+                    color={selectedStopId === stop.stop_id ? '#FF4141' : '#FFC414'}
+                  />
+                </View>
+              </Marker>
+            ))}
+            {routeCoords.length > 0 && (
+              <Polyline
+                coordinates={routeCoords}
+                strokeColors={['rgb(48,101,246)']}
+                strokeWidth={4}
+                lineCap="round"
+              />
+            )}
+          </MapView>
+        ) : (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#3065F6" />
+          </View>
+        )}
       </View>
-    )}
-    </View>
-  );
-};
+    );
+  };
 
 const styles = StyleSheet.create({
   container: {

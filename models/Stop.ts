@@ -1,13 +1,18 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-const StopSchema = new mongoose.Schema({
-    latitude: { type: String, required: true },
-    longitutde: { type: String, required: true },
+interface IStop extends mongoose.Document {
+    latitude: number;
+    longitude: number;
+    name: string;
+    stop_id: string;
+  }
+
+const StopSchema = new mongoose.Schema<IStop>({
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true },
     name: {type: String, required: true},
-    stop_id: {type: String, required: true}
+    stop_id: {type: String, required: true, unique: true}
 })
   
 
-const Stop = mongoose.model('Stop', StopSchema);
-
-export default mongoose.model('Stop', StopSchema);
+export default mongoose.models?.Stop || mongoose.model<IStop>('Stop', StopSchema, 'stop');
