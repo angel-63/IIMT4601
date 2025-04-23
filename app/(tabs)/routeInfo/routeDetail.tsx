@@ -210,18 +210,21 @@ export default function RouteDetailScreen() {
   };
 
   // Utility function to calculate minutes to arrival
-  const getMinutesToArrival = (arrivalTime: string): string => {
+  const getMinutesToArrival = (arrivalTime: string): string | null => {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
-      const arrival = new Date();
+      console.log("Now: ", now);
+      const arrival = new Date(now); // Start with current date
       arrival.setHours(hours, minutes, seconds, 0);
+      console.log("Arrival time: ", arrival);
 
       if (arrival < now) {
-        arrival.setDate(arrival.getDate() + 1);
+        return null; // Return null if arrival time has passed
       }
 
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
+
       if (diffMinutes <= 0) return 'Arrived';
       return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''}`;
     } catch (error) {
@@ -245,22 +248,27 @@ export default function RouteDetailScreen() {
           <Text style={styles.stopName}>{stop.name}</Text>
           {expandedStop === stop.stop_id && (
             <View style={styles.arrivalContainer}>
-              {stop.arrival_times.length > 0 ? (
-                stop.arrival_times.map((arrivalTime, i) => (
-                  <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
-                    <View style={styles.busIconContainer}>
-                      <MaterialIcons name="directions-bus" size={18} color="#666" />
-                      <Text style={styles.routeNumber}>{route?.name}</Text>
+            {stop.arrival_times.length > 0 ? (
+              stop.arrival_times
+                .map((arrivalTime, i) => {
+                  const timeDisplay = getMinutesToArrival(arrivalTime);
+                  return timeDisplay ? (
+                    <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
+                      <View style={styles.busIconContainer}>
+                        <MaterialIcons name="directions-bus" size={18} color="#666" />
+                        <Text style={styles.routeNumber}>{route?.name}</Text>
+                      </View>
+                      <Text style={styles.arrivalTime}>{timeDisplay}</Text>
                     </View>
-                    <Text style={styles.arrivalTime}>{getMinutesToArrival(arrivalTime)}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.arrivalTime}>No arrival times available</Text>
-              )}
-            </View>
-          )}
-        </View>
+                  ) : null;
+                })
+                .filter((item) => item !== null) // Filter out null entries
+            ) : (
+              <Text style={styles.arrivalTime}>No arrival times available</Text>
+            )}
+          </View>
+        )}
+      </View>
         <View style={styles.stopAction}>
           <MaterialIcons
             name={expandedStop === stop.stop_id ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}

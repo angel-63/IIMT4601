@@ -107,7 +107,7 @@ export default function ScheduleScreen() {
     return nextArrivalTime || 'N/A';
   };
   
-  const getMinutesToArrival = (arrivalTime: string): string => {
+  const getMinutesToArrival = (arrivalTime: string): string | null => {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
@@ -115,7 +115,7 @@ export default function ScheduleScreen() {
       arrival.setHours(hours, minutes, seconds, 0);
 
       if (arrival < now) {
-        arrival.setDate(arrival.getDate() + 1);
+        return null;
       }
 
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
@@ -130,6 +130,7 @@ export default function ScheduleScreen() {
   const renderRouteItem = (route: Route, index: string | number) => {
     const isExpanded = expandedRoute === `${route.from} ↔ ${route.to}`;
     const routeKey = `${route.from} ↔ ${route.to}`;
+    const timeDisplay = getMinutesToArrival(route.nextArrival || 'N/A');
 
     const handleRoutePress = () => {
       // Navigate to routeInfo/routeDetail with params
@@ -177,11 +178,17 @@ export default function ScheduleScreen() {
                 <MaterialIcons name="bookmark-border" size={24} color="#aaa" />
               )}
             </TouchableOpacity>
-            <Text style={styles.arrivalTime}>
-              {route.nextArrival ? getMinutesToArrival(route.nextArrival) : 'N/A'}
-            </Text>
-            <Text style={styles.arrivalLabel}>mins</Text>
-            <Text style={styles.arrivalNote}>till next arrival</Text>
+            {timeDisplay && timeDisplay !== 'N/A' && timeDisplay !== 'Arrived' ? (
+              <>
+                <Text style={styles.arrivalTime}>{timeDisplay}</Text>
+                <Text style={styles.arrivalLabel}>mins</Text>
+                <Text style={styles.arrivalNote}>till next arrival</Text>
+              </>
+            ) : (
+              <Text style={styles.arrivalTime}>
+                {timeDisplay === 'Arrived' ? 'Arrived' : 'No arrival times available'}
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
 
