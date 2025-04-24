@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
       console.log('Redirecting to tabs because user is authenticated and in auth group');
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/schedule');
     }
   }, [isAuthenticated, segments, router, pendingSignUp]);
 
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUserId(response.data.userId);
       setIsAuthenticated(true);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/schedule');
     } catch (error) {
       console.error('Login error:', error.response?.data || error.message);
       console.error('Login error full:', error);
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPendingSignUp(false);
     console.log('State updated, navigating to /(tabs)');
     setTimeout(() => {
-      router.push('/(tabs)');
+      router.push('/(tabs)/schedule');
       console.log('Navigation command executed');
     }, 100);
   };

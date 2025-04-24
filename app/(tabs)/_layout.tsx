@@ -41,29 +41,20 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="schedule"
         options={{
           title: 'Schedule',
           tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
+          headerShown: false,
         }}
       />
 
       <Tabs.Screen
-        name="reservation/index"
+        name="reservation"
         options={{
           title: 'Reservation',
           tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="reservation/two"
-        options={{
-          href: null,
-          // title: 'Reservation',
-          // headerTitle: () => <RoutePicker
-          //   onSelect={(routeId) => navigation.setParams({ selectedRouteId: routeId })}
-          //   />,
+          headerShown: false,
         }}
       />
 
@@ -75,40 +66,6 @@ export default function TabLayout() {
           headerShown: false, // Always hide the tab navigator's header for Profile tab
         }}
       />
-
-      <Tabs.Screen
-        name="reservation/confirmReservation"
-        options={{
-          href: null,
-          title: 'Confirm Reservation',
-        }}
-      />
-
-      <Tabs.Screen
-        name="reservation/paymentSuccess"
-        options={{
-          href: null,
-          title: 'Payment Success',
-        }}
-      />
-
-      <Tabs.Screen
-        name="routeInfo/routeDetail"
-        options={{
-          href: null,
-          title: 'Reservation',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="reservation/routeStops"
-        options={{
-          href: null,
-          title: 'Please select a stop',
-        }}
-      />
-
     </Tabs>
   );
 }

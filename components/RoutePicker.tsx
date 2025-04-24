@@ -63,7 +63,7 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.push("/reservation/index")} style={{ marginLeft: 25 }}>
+        <Pressable onPress={() => router.push("/reservation")} style={{ marginLeft: 25 }}>
           <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
         </Pressable>
         <TouchableOpacity style={styles.button} onPress={toggleDropdown}>
@@ -147,6 +147,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
+    zIndex: 1,
     marginTop: '3%',
     alignItems: 'center',
     justifyContent: 'center',

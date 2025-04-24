@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-import { API_BASE } from '../../config-api';
-import { useAuth } from '../../context/auth';
+import { API_BASE } from '../../../config-api';
+import { useAuth } from '../../../context/auth';
 import axios from 'axios';
 
 interface Route {
