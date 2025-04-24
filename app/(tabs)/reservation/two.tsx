@@ -72,13 +72,21 @@ export default function TabTwoScreen() {
     navigation.setOptions({
       headerTitle: () => (
         <RoutePicker
-          selectedRoute={form.route_id}
           onSelect={(routeId) => {
             console.log('Route selected:', routeId);
             setForm({ ...form, route_id: routeId, pickUp: 'Stops', dropOff: 'Stops' });
           }}
+          context="reservation"
         />
       ),
+      headerStyle: {
+        backgroundColor: 'white', // Match RoutePicker background
+      },
+      headerTitleContainerStyle: {
+        left: 40, // Offset for back button
+        right: 10, // Minimal padding on right
+        paddingHorizontal: 0, // Remove extra padding
+      },
     });
   }, [form.route_id]);
 

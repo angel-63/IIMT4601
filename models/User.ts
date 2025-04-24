@@ -32,6 +32,7 @@ interface IUser extends mongoose.Document {
   bookmarked: string[];
   cardInfo?: ICardInfo;
   settings: ISettings;
+  pushToken?: string;
 }
 
 const TripSchema = new Schema({
@@ -66,6 +67,7 @@ const UserSchema = new Schema({
   bookmarked: [{ type: String }],
   cardInfo: { type: CardInfoSchema, required: false },
   settings: { type: SettingsSchema, default: () => ({}) },
+  pushToken: { type: String },
 });
 
 export default mongoose.model<IUser>('User', UserSchema, 'userInfo');

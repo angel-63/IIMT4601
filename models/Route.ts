@@ -27,6 +27,7 @@ const RouteSchema = new mongoose.Schema<IRoute>({
     stop_id: {type: String, required: true, unique: true},
     order: {type: String, required: true},
     arrival_times: [{type: String, required: true}],
+    shift_ids: [{type: String, required: true}],
   }],
   fare: { type: String, required: true },
   schedule: { type: String, required: true },

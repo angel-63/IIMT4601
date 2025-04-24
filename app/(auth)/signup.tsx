@@ -3,6 +3,7 @@ import { useAuth } from '../../context/auth';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { handlePhoneInput, validatePhoneNumber } from '../../components/phoneNumberHandler';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,22 @@ export default function Signup() {
   const [phone, setPhone] = useState('');
   const { signUp } = useAuth();
   const router = useRouter();
+
+  const getPhoneValidationError = (phone: string): string => {
+    try {
+      const phoneNumber = parsePhoneNumberFromString(phone, 'HK');
+      if (!phoneNumber) {
+        return 'Please enter a valid phone number.';
+      }
+      if (!phoneNumber.isValid()) {
+        const country = phoneNumber.country || 'the selected country';
+        return `Phone number is invalid for ${country}. Ensure it has the correct number of digits.`;
+      }
+      return '';
+    } catch (error) {
+      return 'Error validating phone number. Please try again.';
+    }
+  };
 
   const handleSignup = async () => {
     if (!email || !password) {
@@ -26,8 +43,9 @@ export default function Signup() {
       Alert.alert('Error', 'Name and phone number are required');
       return;
     }
-    if (!validatePhoneNumber(phone)) {
-      Alert.alert('Error', 'Please enter a valid phone number (e.g., +852 1234 5678, +1 (123) 456-7890).');
+    const phoneError = getPhoneValidationError(phone);
+    if (phoneError) {
+      Alert.alert('Error', phoneError);
       return;
     }
     try {

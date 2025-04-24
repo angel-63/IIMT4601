@@ -16,9 +16,10 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/auth';
 import axios from 'axios';
-import { handlePhoneInput, validatePhoneNumber } from '../../../components/phoneNumberHandler';
+import { handlePhoneInput, validatePhoneNumber, getCountryCode } from '../../../components/phoneNumberHandler';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
-const BACKEND_URL = 'http://localhost:3001'; // Use localhost since frontend and backend are on the same machine
+const BACKEND_URL = 'http://localhost:3001';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();
@@ -33,7 +34,6 @@ const EditProfileScreen = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Update state when user data changes
   useEffect(() => {
     if (user) {
       setName(user.name);
@@ -42,18 +42,15 @@ const EditProfileScreen = () => {
     }
   }, [user]);
 
-  // Validate email
   const isValidEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  // Validate passwords
   const isValidPassword = (password: string) => {
-    return password.length >= 8 || password.length === 0; // Allow empty new password
+    return password.length >= 8 || password.length === 0;
   };
 
-  // Verify old password
   const verifyOldPassword = async (password: string): Promise<boolean> => {
     try {
       const response = await axios.post(`${BACKEND_URL}/api/login`, {
@@ -67,7 +64,22 @@ const EditProfileScreen = () => {
     }
   };
 
-  // Handle save
+  const getPhoneValidationError = (phone: string): string => {
+    try {
+      const phoneNumber = parsePhoneNumberFromString(phone, 'HK');
+      if (!phoneNumber) {
+        return 'Please enter a valid phone number.';
+      }
+      if (!phoneNumber.isValid()) {
+        const country = phoneNumber.country || 'the selected country';
+        return `Phone number is invalid for ${country}. Ensure it has the correct number of digits.`;
+      }
+      return '';
+    } catch (error) {
+      return 'Error validating phone number. Please try again.';
+    }
+  };
+
   const handleSave = useCallback(async () => {
     if (!userId) {
       Alert.alert('Error', 'User ID not found. Please log in again.');
@@ -82,8 +94,9 @@ const EditProfileScreen = () => {
       Alert.alert('Error', 'Please enter a valid email address.');
       return;
     }
-    if (!validatePhoneNumber(phone)) {
-      Alert.alert('Error', 'Please enter a valid phone number (e.g., +852 1234 5678, +1 (123) 456-7890).');
+    const phoneError = getPhoneValidationError(phone);
+    if (phoneError) {
+      Alert.alert('Error', phoneError);
       return;
     }
     if (newPassword && !oldPassword) {
@@ -114,7 +127,6 @@ const EditProfileScreen = () => {
         throw new Error(response.data.message || 'Failed to update profile');
       }
 
-      // Refresh user data in AuthContext
       await fetchUserData();
 
       Alert.alert('Success', 'Changes saved successfully!', [

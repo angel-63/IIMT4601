@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Dimensions, Pressable, Alert } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
+  Pressable,
+  Alert,
+  Modal,
+  ScrollView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { API_BASE } from '@/config-api';
@@ -18,31 +29,34 @@ type RoutePickerProps = {
 
 const screenWidth = Dimensions.get('screen').width;
 
-const RoutePicker = ({ onSelect }: RoutePickerProps) => {
+const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
   const router = useRouter();
-  const [isDropdownVisible, setDropdownVisible] = useState(false);
+  const [isModalVisible, setModalVisible] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [routes, setRoutes] = useState<Route[]>([]);
 
-  const toggleDropdown = () => {
-    setDropdownVisible(!isDropdownVisible);
+  const toggleModal = () => {
+    console.log('Toggling modal, current state:', isModalVisible);
+    setModalVisible(!isModalVisible);
   };
 
   const handleSelect = (route: Route) => {
     onSelect?.(route.route_id);
     setSelectedRoute(route);
-    setDropdownVisible(false);
-    console.log(`selected new route: ${route.name}, id: ${route.route_id}`);
+    setModalVisible(false);
+    console.log(`Selected route: ${route.name}, id: ${route.route_id}`);
   };
 
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
         const baseUrl = await API_BASE;
+        console.log('Fetching routes from:', `${baseUrl}/routes`);
         const response = await fetch(`${baseUrl}/routes`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
+        console.log('Routes fetched:', data);
         const fetchedRoutes = data.map((item: any) => ({
           route_id: item.route_id,
           name: item.route_name,
@@ -52,7 +66,9 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
         setRoutes(fetchedRoutes);
       } catch (error) {
         console.error('API Error:', error);
-        Alert.alert('Error', 'Failed to load routes');
+        Alert.alert('Error', 'Failed to load routes. Please try again.', [
+          { text: 'Retry', onPress: () => fetchRoutes() },
+        ]);
       } finally {
         setIsLoading(false);
       }
@@ -63,19 +79,25 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.push("/reservation")} style={{ marginLeft: 25 }}>
-          <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
-        </Pressable>
-        <TouchableOpacity style={styles.button} onPress={toggleDropdown}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {context === 'reservation' && (
+          <Pressable
+            onPress={() => router.push('/(tabs)/reservation')}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={20} />
+          </Pressable>
+        )}
+        <TouchableOpacity style={styles.button} onPress={toggleModal}>
+          <View style={styles.buttonContent}>
             {selectedRoute ? (
               <>
-                {/* <Text style={styles.buttonText}>{selectedRoute.start}</Text>
-                <FontAwesome name="arrows-h" color="#000" size={20} />
-                <Text style={styles.buttonText}>{selectedRoute.end}</Text> */}
-                <Text style={styles.buttonText}>{selectedRoute.start}</Text>
-                  <Text style={[styles.buttonText, { fontWeight: 'bold' }]}>→</Text>
-                  <Text style={styles.buttonText}>{selectedRoute.end}</Text>
+                <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
+                  {selectedRoute.start}
+                </Text>
+                <Text style={[styles.buttonText, { fontWeight: 'bold' }]}>→</Text>
+                <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
+                  {selectedRoute.end}
+                </Text>
               </>
             ) : (
               <Text style={styles.buttonText}>Select Route</Text>
@@ -84,26 +106,48 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
         </TouchableOpacity>
       </View>
 
-      {isDropdownVisible && !isLoading && (
-        <View style={styles.dropdown}>
-          <FlatList
-            data={routes}
-            keyExtractor={(item) => item.route_id}
-            renderItem={({ item }) => (
-              <TouchableOpacity key={item.route_id} style={styles.option} onPress={() => handleSelect(item)}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.optionText}>{item.start}</Text>
-                  {/* <FontAwesome name="arrows-h" color="#000" size={20} /> */}
-                  {/* <FontAwesome name="arrow-right" color="#000" size={14} /> */}
-                  <Text style={[styles.optionText, { fontWeight: 'bold' }]}>→</Text>
-                  <Text style={styles.optionText}>{item.end}</Text>
-                  {/* <Text style={styles.buttonText}>{item.start} → {item.end}</Text> */}
-                </View>
-              </TouchableOpacity>
-            )}
-          />
+      <Modal
+        visible={isModalVisible && !isLoading}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={toggleModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select a Route</Text>
+            <ScrollView style={styles.routeList}>
+              {routes.map((item) => (
+                <TouchableOpacity
+                  key={item.route_id}
+                  style={styles.option}
+                  onPress={() => handleSelect(item)}
+                >
+                  <View style={styles.optionContent}>
+                    <Text
+                      style={styles.optionText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.start}
+                    </Text>
+                    <Text style={[styles.optionText, { fontWeight: 'bold' }]}>→</Text>
+                    <Text
+                      style={styles.optionText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.end}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.cancelButton} onPress={toggleModal}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 };
@@ -111,64 +155,101 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
 const styles = StyleSheet.create({
   container: {
     width: screenWidth,
-    position: 'relative',
     alignItems: 'center',
-    paddingHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 3, // Further reduced to minimize space
+    zIndex: 20,
+    padding: 5,
   },
   button: {
-    width: screenWidth - 25,
+    flex: 1,
     alignItems: 'center',
     backgroundColor: 'white',
-    right: 25,
-    zIndex: -1,
+    paddingVertical: 6, // Further reduced padding
+    zIndex: 10,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '80%', // Maximize width
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+    paddingHorizontal: 3, // Further reduced padding
   },
   buttonText: {
-    textAlign: 'center',
-    // alignItems: 'center',
-    // justifyContent: 'center',
     color: '#333',
     fontWeight: 'bold',
-    // width: 100,
-    marginHorizontal: '3%',
+    marginHorizontal: 1, // Minimal margin
+    fontSize: 12, // Further reduced font size
+    flex: 1,
+    textAlign: 'center',
   },
-  dropdown: {
-    width: screenWidth + 25,
-    position: 'absolute',
-    top: 20,
-    right: '1%',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: screenWidth * 0.95,
     backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-    zIndex: 1,
-    marginTop: '3%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    elevation: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  routeList: {
+    maxHeight: 300,
   },
   option: {
-    paddingVertical: 10,
-    width: screenWidth * 1.1,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#ddd',
     alignItems: 'center',
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
     justifyContent: 'center',
-    left: '-2%',
+    flexWrap: 'nowrap',
   },
   optionText: {
     fontSize: 14,
     color: '#333',
+    marginHorizontal: 3,
+    flex: 1,
     textAlign: 'center',
+  },
+  cancelButton: {
+    marginTop: 10,
+    paddingVertical: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: '3%',
-    width: 100,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: 'bold',
   },
 });
 

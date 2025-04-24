@@ -3,6 +3,7 @@ import { Text, View, StyleSheet, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { API_BASE } from '@/config-api';
 import axios from 'axios';
+import { useAuth } from '../../../context/auth'; 
 
 type Route = {
   start: string;
@@ -13,6 +14,7 @@ type Route = {
 export default function ConfirmReservation() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { userId } = useAuth();
   console.log('Received params:', params);
   const [routeData, setRouteData] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function ConfirmReservation() {
         seat: Number(params.seat),
         pickUp: params.pickUp,
         dropOff: params.dropOff,
+        user_id: userId,
       });
 
       if (response.status === 201) {

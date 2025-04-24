@@ -137,7 +137,7 @@ export default function ScheduleScreen() {
 
     const handleRoutePress = () => {
       router.push({
-        pathname: '../routeInfo/routeDetail',
+        pathname: '../schedule/routeDetail',
         params: {
           route_id: route.route_id,
           route_name: `${route.from} → ${route.to}`,

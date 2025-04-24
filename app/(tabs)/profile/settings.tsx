@@ -259,6 +259,15 @@ const SettingsScreen = () => {
             </View>
 
             <View style={styles.settingItem}>
+              <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Allocated Shift Reminder</Text>
+              <Switch
+                value={allocatedShiftReminder}
+                onValueChange={handleAllocatedShiftReminderToggle}
+                trackColor={{ false: '#767577', true: '#FF4444' }}
+              />
+            </View>
+
+            <View style={styles.settingItem}>
               <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Reserved Seat Reminder</Text>
               <Switch
                 value={reservedSeatReminder}
@@ -281,15 +290,6 @@ const SettingsScreen = () => {
                 <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>minutes before arrival</Text>
               </View>
             )}
-
-            <View style={styles.settingItem}>
-              <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Allocated Shift Reminder</Text>
-              <Switch
-                value={allocatedShiftReminder}
-                onValueChange={handleAllocatedShiftReminderToggle}
-                trackColor={{ false: '#767577', true: '#FF4444' }}
-              />
-            </View>
 
           </>
         )}

@@ -10,7 +10,7 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { API_BASE } from '@/config-api';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
@@ -59,7 +59,7 @@ export default function RouteStopsScreen() {
         navigation.setOptions({
         headerTitle: `Select ${label} Stop`,
         headerLeft: () => (
-            <Pressable onPress={() => navigation.navigate("reservation/two")} style={{ marginLeft: 15 }}>
+            <Pressable onPress={() => router.push('/(tabs)/reservation/two')} style={{ marginLeft: 15 }}>
             <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
             </Pressable>
         ),
@@ -106,7 +106,7 @@ export default function RouteStopsScreen() {
     // routeStops.tsx
     const handleStopSelect = (stop: Stop) => {
         console.log('Navigating with stop:', stop.name);
-        navigation.navigate("reservation/two", { selectedStop: stop.name, label });
+        router.push( {pathname: '/(tabs)/reservation/two', params: { selectedStop: stop.name, label }} );
     };
 
     const renderStopItem = (stop: Stop, index: number) => (

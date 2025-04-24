@@ -2,10 +2,12 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcrypt'; 
+import axios from 'axios';
 import Route from './models/Route';
 import Stop from './models/Stop';
 import User from './models/User';
 import Reservation from './models/Reservation';
+import Notification from './models/Notification';
 
 interface ReservationQuery {
   user_id?: string;
@@ -423,3 +425,164 @@ app.get('/reservations', async (req, res) => {
     res.status(500).json({ message });
   }
 });
+
+// Function to send push notification via Expo
+async function sendPushNotification(pushToken: string, message: string) {
+  try {
+    await axios.post('https://exp.host/--/api/v2/push/send', {
+      to: pushToken,
+      sound: 'default',
+      title: 'Minibus Reservation',
+      body: message,
+      data: { type: 'reservation' },
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    console.log(`Push notification sent to ${pushToken}`);
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+  }
+}
+
+// Function to generate notifications based on reservation
+async function generateNotifications(reservation: any, userId: string) {
+  const user = await User.findOne({ user_id: userId });
+  if (!user || !user.settings?.notificationsEnabled) return;
+
+  const reservationTime = new Date(reservation.date);
+  const notifications: any[] = [];
+
+  // 1. Reservation Reminder (15 minutes before)
+  if (user.settings.reservationReminder) {
+    const reminderTime = new Date(reservationTime.getTime() - 15 * 60 * 1000);
+    notifications.push({
+      reservation_id: reservation.reservation_id,
+      user_id: userId,
+      message: "Your reservation is in 15 minutes.",
+      send_time: reminderTime,
+      type: 'ReservationReminder',
+      status: 'Pending',
+    });
+  }
+
+  // 2. Allocated Shift Reminder (when shift_id is assigned)
+  if (user.settings.allocatedShiftReminder && reservation.shift_id) {
+    notifications.push({
+      reservation_id: reservation.reservation_id,
+      user_id: userId,
+      message: "Your reservation has been assigned a shift.",
+      send_time: new Date(), // Send immediately
+      type: 'AllocatedShiftReminder',
+      status: 'Pending',
+    });
+  }
+
+  // 3. Reserved Seat Reminder (xx minutes before arrival)
+  if (user.settings.reservedSeatReminder && reservation.shift_id) {
+    const route = await Route.findOne({ route_id: reservation.route_id });
+    if (route && route.stops) {
+      const stop = route.stops.find((s: { stop_id: any; }) => s.stop_id === reservation.pickup_location);
+      if (stop && stop.arrival_times.length > 0) {
+        const arrivalTimeStr = stop.arrival_times.find((time: string | any[]) => time.includes(reservation.shift_id));
+        if (arrivalTimeStr) {
+          const arrivalTime = new Date(`${reservation.date.toISOString().split('T')[0]}T${arrivalTimeStr}+08:00`);
+          const minutesBefore = Math.min(user.settings.reservedSeatReminderBeforeMinutes || 15, 15);
+          const reminderTime = new Date(arrivalTime.getTime() - minutesBefore * 60 * 1000);
+          notifications.push({
+            reservation_id: reservation.reservation_id,
+            user_id: userId,
+            message: `Your minibus is arriving in ${minutesBefore} minutes at ${reservation.pickup_location}.`,
+            send_time: reminderTime,
+            type: 'ReservedSeatReminder',
+            status: 'Pending',
+          });
+        }
+      }
+    }
+  }
+
+  // Save notifications to database
+  if (notifications.length > 0) {
+    await Notification.insertMany(notifications);
+    console.log(`Generated ${notifications.length} notifications for reservation ${reservation.reservation_id}`);
+  }
+}
+
+// Background task to check and send notifications
+async function startNotificationScheduler() {
+  setInterval(async () => {
+    const now = new Date();
+    const notifications = await Notification.find({
+      status: 'Pending',
+      send_time: { $lte: now },
+    });
+
+    for (const notification of notifications) {
+      const user = await User.findOne({ user_id: notification.user_id });
+      if (user && user.pushToken) {
+        await sendPushNotification(user.pushToken, notification.message);
+        notification.status = 'Sent';
+        await notification.save();
+      } else {
+        notification.status = 'Failed';
+        await notification.save();
+        console.log(`No push token for user ${notification.user_id}`);
+      }
+    }
+  }, 60 * 1000); // Check every minute
+}
+
+// Start the scheduler
+startNotificationScheduler();
+
+// GET notifications for a user
+app.get('/notifications/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const notifications = await Notification.find({ user_id: userId }).sort({ send_time: -1 });
+    res.status(200).json({
+      message: 'Notifications retrieved successfully',
+      notifications,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message });
+  }
+});
+
+// PUT update reservation (e.g., when shift_id is assigned)
+app.put('/reservations/:reservationId', async (req, res) => {
+  try {
+    const { reservationId } = req.params;
+    const { shift_id } = req.body;
+
+    const updateData: any = {};
+    if (shift_id) {
+      updateData.shift_id = shift_id;
+    }
+
+    const reservation = await Reservation.findOneAndUpdate(
+      { reservation_id: reservationId },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+
+    // Generate notifications if shift_id was updated
+    if (shift_id) {
+      await generateNotifications(reservation, reservation.user_id);
+    }
+
+    res.status(200).json({
+      message: 'Reservation updated successfully',
+      reservation,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message });
+  }
+});
+
