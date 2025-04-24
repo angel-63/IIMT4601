@@ -79,7 +79,7 @@ export default function ScheduleScreen() {
     }
   };
 
-  const findNextArrival = (arrivalTimes: string[]): string => {
+  const findNextArrival = (arrivalTimes: string[]): (string | null) => {
     if (!arrivalTimes || arrivalTimes.length === 0) return 'N/A';
 
     const now = new Date();
@@ -93,7 +93,7 @@ export default function ScheduleScreen() {
         arrival.setHours(hours, minutes, seconds || 0, 0);
 
         if (arrival < now) {
-          arrival.setDate(arrival.getDate() + 1);
+          return null;
         }
 
         const diffMinutes = (arrival.getTime() - now.getTime()) / 1000 / 60;
@@ -190,9 +190,13 @@ export default function ScheduleScreen() {
                 <Text style={styles.arrivalNote}>till next arrival</Text>
               </>
             ) : (
-              <Text style={styles.arrivalTime}>
-                {timeDisplay === 'Arrived' ? 'Arrived' : 'No arrival times available'}
+              <View>
+              <Text style={[styles.arrivalTime, {textAlign:'center'}]}>
+                {timeDisplay === 'Arrived' ? 'Arrived' : '-'}
               </Text>
+              <Text style={styles.arrivalLabel}></Text>
+              <Text style={styles.arrivalNote}></Text>
+              </View>
             )}
           </View>
         </TouchableOpacity>

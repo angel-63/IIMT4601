@@ -5,6 +5,14 @@ import bcrypt from 'bcrypt';
 import Route from './models/Route';
 import Stop from './models/Stop';
 import User from './models/User';
+import Reservation from './models/Reservation';
+
+interface ReservationQuery {
+  user_id?: string;
+  reservation_id?: string;  // optional
+  reservation_status?: string;  // optional
+  date?: { $gte: Date };  // optional
+}
 
 // Initialize Express
 const app = express();
@@ -12,12 +20,11 @@ const PORT = 3001;
 
 // Middleware
 app.use(express.json());
-app.use(cors({
+app.use(cors({ origin: true
     // origin: [
-    //   'exp://192.168.3.31:8081', // Your Expo URL
-    //   'exp://10.68.233.56:8081',
-    //   'http://localhost:8081',   // Expo web
-    //   'http://192.168.3.31:8081' // Local network
+    //   'exp://192.168.1.78:8081', // Your Expo URL
+    //   'http://localhost:19000',   // Expo web
+    //   'http://192.168.1.78:19000' // Local network
     // ]
   }));
 
@@ -49,6 +56,8 @@ app.get("/routes", async (req: express.Request, res: express.Response) => {
 app.get("/routes/:routeId", async (req: express.Request, res: express.Response) => {
   try {
     const {routeId} = req.params;
+    const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`; // Log full URL
+    console.log('Requested URL:', fullUrl);
     console.log('req:', routeId);
     const route = await Route.findOne({route_id: routeId});
     if (!route) {
@@ -56,24 +65,6 @@ app.get("/routes/:routeId", async (req: express.Request, res: express.Response) 
     } else {
       res.status(200).json(route);
       console.log('Found route:', route);
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error occurred';
-    res.status(500).json({ message });
-  }
-});
-
-// GET specific stop details
-app.get("/stops/:stopId", async (req: express.Request, res: express.Response) => {
-  try {
-    const {stopId} = req.params;
-    console.log('req:', stopId);
-    const stop = await Stop.findOne({stop_id: stopId});
-    if (!stop) {
-      res.status(404).json({ message: 'Stop not found' });
-    } else {
-      res.status(200).json(stop);
-      console.log('Found stop:', stop);
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -333,5 +324,102 @@ app.post('/user/:userId/settings', async (req, res) => {
 app._router.stack.forEach((middleware: any) => {
   if (middleware.route) {
     console.log('Registered route:', middleware.route.path);
+  }
+});
+
+// POST reservation
+app.post('/reservations', async (req, res) => { 
+  try { 
+    const { route_id, date, time, seat, pickUp, dropOff } = req.body;
+
+    if (!route_id || 
+      !date || 
+      !time || 
+      !seat || 
+      !pickUp || 
+      !dropOff) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const dateTimeString = `${date}T${time}:00+08:00`;
+    const dateObj = new Date(dateTimeString);
+    console.log(dateObj);
+
+    const id = Math.floor(10000000 + Math.random() * 90000000);
+
+    const reservation = new Reservation({
+      status: "Reserved",
+      date: dateObj,
+      pickup_location: pickUp,
+      dropoff_location: dropOff,
+      seat,
+      reservation_id: id,
+      reservation_status: "Reserved",
+      user_id: "USER101",
+      trip_id: id,
+      payment_status: "Pending",
+      route_id,      
+    });
+    
+    await reservation.save();
+    
+    res.status(201).json({ 
+      message: 'Reservation created successfully',
+      reservation 
+    });
+    
+    } catch (error: unknown) { 
+      const message = error instanceof Error ? error.message : 'Unknown error occurred';
+      res.status(500).json({ message });
+  } 
+});
+
+// GET reservation details based on userID or reservation ID
+app.get('/reservations', async (req, res) => {
+  try {
+    const { user_id, reservation_id, reservation_status, date_gte } = req.query as { user_id?: string; reservation_id?: string; reservation_status?: string; date_gte?: Date };
+
+    // Validate query parameters
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+
+    // Build query
+    const query: ReservationQuery = {};
+    if (user_id) {
+      query.user_id = user_id;
+    }
+    if (reservation_id) {
+      query.reservation_id = reservation_id;
+    }
+
+    if (reservation_status) {
+      query.reservation_status = reservation_status;
+    }
+
+    if (date_gte) {
+      const date = new Date(date_gte);
+      if (isNaN(date.getTime())) {
+        return res.status(400).json({ error: 'Invalid date_gte format' });
+      }
+      query.date = { $gte: date };
+    }
+
+    // Query MongoDB
+    const reservations = await Reservation.find(query).lean();
+
+    // Handle no results
+    if (reservations.length === 0) {
+      return res.status(404).json({ message: 'No reservations found' });
+    }
+
+    res.status(200).json({
+      message: 'Reservations retrieved successfully',
+      reservations,
+    });
+  } catch (error) {
+    console.error('GET /reservations error:', error); // Improved logging
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message });
   }
 });

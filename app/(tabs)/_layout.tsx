@@ -49,19 +49,21 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="reservation/two"
+        name="reservation/index"
         options={{
           title: 'Reservation',
-          headerTitle: () => (
-            <RoutePicker
-              onSelect={(routeId) => navigation.setParams({ selectedRouteId: routeId })}
-            />
-          ),
           tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
-          headerTitleContainerStyle: {
-            left: Platform.OS === 'ios' ? 0 : 16,
-            right: Platform.OS === 'ios' ? 0 : 16,
-          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="reservation/two"
+        options={{
+          href: null,
+          // title: 'Reservation',
+          // headerTitle: () => <RoutePicker
+          //   onSelect={(routeId) => navigation.setParams({ selectedRouteId: routeId })}
+          //   />,
         }}
       />
 
@@ -98,6 +100,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
         }}
       />
+
+      <Tabs.Screen
+        name="reservation/routeStops"
+        options={{
+          href: null,
+          title: 'Please select a stop',
+        }}
+      />
+
     </Tabs>
   );
 }

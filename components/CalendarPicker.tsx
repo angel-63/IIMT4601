@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Button, StyleSheet, Platform, Image, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 interface CalendarPickerProps {
   selectedDate: string;
@@ -17,8 +15,9 @@ const CalendarPicker = ({selectedDate, onDateChange}: CalendarPickerProps) => {
     selected:boolean;
   }
   const today = new Date();
-  today.setUTCHours(today.getUTCHours() +8);  // HKT = UTC+8
-  // console.log(`today: ${today}`);
+  // today.setUTCHours(today.getUTCHours() +8);  // HKT = UTC+8
+  today.setUTCHours(today.getUTCHours());
+  console.log(`today: ${today}`);
   const enabledDates: { [key: string]: DateStatus } = {};
   // const tmr = new Date(today.getDate()+1);
   // const tmrString = tmr.toISOString().split('T')[0];
@@ -33,10 +32,12 @@ const CalendarPicker = ({selectedDate, onDateChange}: CalendarPickerProps) => {
   // calendar: enabled dates for today + next 7 days
   for (let i = 0; i < 7; i++) {
     const date = new Date();
-    date.setUTCDate(today.getUTCDate() + i);
-    date.setUTCHours(today.getUTCHours() + 8);
-    // console.log(date);
-    const dateString = date.toISOString().split('T')[0];
+    date.setUTCHours(today.getUTCHours() + i*24);
+    console.log(`date b4 +8: ${date}`);
+    // date.setUTCHours(today.getUTCHours() + 8);
+    // console.log(`after b4 +8: ${date}`);
+    const dateString = date.toLocaleDateString('en-CA');
+    console.log(dateString)
     enabledDates[dateString] = { 
       disabled: false,
       selected: selectedDate === dateString

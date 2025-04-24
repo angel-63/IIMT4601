@@ -8,6 +8,7 @@ interface IRoute extends mongoose.Document {
     stop_id: string,
     order: string,
     arrival_times: string[],
+    shift_ids: string[],
   }]
   fare: string;
   schedule: string;
@@ -16,7 +17,7 @@ interface IRoute extends mongoose.Document {
 }
 
 const RouteSchema = new mongoose.Schema<IRoute>({
-  route_id: { type: String, required: true },
+  route_id: { type: String, required: true, unique: true },
   route_name: { type: String, required: true },
   // stops: [{
   //   type: mongoose.Schema.Types.ObjectId,

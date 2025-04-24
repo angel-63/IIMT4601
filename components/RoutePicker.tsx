@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, Dimensions, Pressable, Alert } from 'react-native';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { API_BASE } from '@/config-api';
 
 type Route = {
@@ -19,7 +19,7 @@ type RoutePickerProps = {
 const screenWidth = Dimensions.get('screen').width;
 
 const RoutePicker = ({ onSelect }: RoutePickerProps) => {
-  const navigation = useNavigation();
+  const router = useRouter();
   const [isDropdownVisible, setDropdownVisible] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +63,7 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={{ marginLeft: 25 }}>
+        <Pressable onPress={() => router.push("/reservation/index")} style={{ marginLeft: 25 }}>
           <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
         </Pressable>
         <TouchableOpacity style={styles.button} onPress={toggleDropdown}>
@@ -73,7 +73,9 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
                 {/* <Text style={styles.buttonText}>{selectedRoute.start}</Text>
                 <FontAwesome name="arrows-h" color="#000" size={20} />
                 <Text style={styles.buttonText}>{selectedRoute.end}</Text> */}
-                <Text style={styles.buttonText}>{selectedRoute.start} → {selectedRoute.end}</Text>
+                <Text style={styles.buttonText}>{selectedRoute.start}</Text>
+                  <Text style={[styles.buttonText, { fontWeight: 'bold' }]}>→</Text>
+                  <Text style={styles.buttonText}>{selectedRoute.end}</Text>
               </>
             ) : (
               <Text style={styles.buttonText}>Select Route</Text>
@@ -88,11 +90,12 @@ const RoutePicker = ({ onSelect }: RoutePickerProps) => {
             data={routes}
             keyExtractor={(item) => item.route_id}
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.option} onPress={() => handleSelect(item)}>
+              <TouchableOpacity key={item.route_id} style={styles.option} onPress={() => handleSelect(item)}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={styles.optionText}>{item.start}</Text>
                   {/* <FontAwesome name="arrows-h" color="#000" size={20} /> */}
-                  <FontAwesome name="arrow-right" color="#000" size={14} />
+                  {/* <FontAwesome name="arrow-right" color="#000" size={14} /> */}
+                  <Text style={[styles.optionText, { fontWeight: 'bold' }]}>→</Text>
                   <Text style={styles.optionText}>{item.end}</Text>
                   {/* <Text style={styles.buttonText}>{item.start} → {item.end}</Text> */}
                 </View>
@@ -131,7 +134,7 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: 'bold',
     // width: 100,
-    // marginHorizontal: '3%',
+    marginHorizontal: '3%',
   },
   dropdown: {
     width: screenWidth + 25,

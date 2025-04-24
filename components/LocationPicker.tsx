@@ -4,33 +4,34 @@ import { useRouter } from 'expo-router';
 
 interface LocationPickerProps {
   value: string;
-  onChange: (value: string) => void;
   label: string;
+  routeId?: string;
+  disabled?: boolean;
 }
 
-const LocationPicker = ({ value, onChange,}: LocationPickerProps) => {
+const LocationPicker = ({ value, label, routeId, disabled }: LocationPickerProps) => {
   const router = useRouter();
 
   const handlePress = () => {
+    if (disabled) return;
     router.push({
-      pathname: '../stops',
-    //   params: { 
-    //     onSelect: (selectedValue: string) => onChange(selectedValue),
-    //     type: label.toLowerCase()
-    //   }
+      pathname: '/reservation/routeStops',
+      params: { label: label, 
+        route_id: routeId },
     });
   };
 
   return (
     <View>
-      <Pressable 
+      <Pressable
         onPress={handlePress}
+        disabled={disabled}
         style={({ pressed }) => [
           styles.locationButton,
-          { opacity: pressed ? 0.5 : 1 }
+          { opacity: pressed && !disabled ? 0.5 : disabled ? 0.5 : 1 },
         ]}
       >
-        <Text style={styles.buttonText}>{value || "Stops"}</Text>
+        <Text style={styles.buttonText}>{value || 'Stops'}</Text>
       </Pressable>
     </View>
   );
@@ -43,12 +44,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 10,
-        borderRadius: 8
+        borderRadius: 8,
     },
     buttonText:{
         textAlign:'center',
         justifyContent: 'center',
         alignContent: 'center',
+        fontSize: 12, 
+        maxWidth: 222,
     }
 })
 

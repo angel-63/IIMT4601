@@ -5,10 +5,11 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 interface TimePickerProps{
   selectedTime: string;
+  selectedDate: string;
   onTimeChange: (selectedTime: string) => void;
 }
 
-const TimePicker = ({selectedTime, onTimeChange}: TimePickerProps) =>{
+const TimePicker = ({selectedTime, selectedDate, onTimeChange}: TimePickerProps) =>{
   // const [time, setTime] = useState('');
   const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
 
@@ -33,6 +34,36 @@ const TimePicker = ({selectedTime, onTimeChange}: TimePickerProps) =>{
     hideDatePicker();
   };
 
+  // Calculate minimum time (now + 30 minutes)
+  const getMinimumTime = () => {
+    if (!selectedDate) return undefined;
+
+    const today = new Date();
+    today.setUTCHours(today.getUTCHours());
+    // console.log(`today: ${today}`);
+    const todayString = today.toLocaleDateString('en-CA'); // Format: YYYY-MM-DD
+    // console.log(`selectedDate: ${selectedDate}`);
+    // console.log(`todayString: ${todayString}`);
+    const isToday = selectedDate === todayString;
+
+    if (isToday) {
+      const minTime = new Date();
+      minTime.setMinutes(minTime.getMinutes() + 30);
+
+      const minutes = minTime.getMinutes();
+      // console.log(`minutes: ${minutes}`)
+      
+      const roundedMinutes = Math.ceil(minutes / 15) * 15;
+      // console.log(`roundedMinutes: ${roundedMinutes}`)
+      minTime.setMinutes(roundedMinutes);
+      
+      minTime.setSeconds(0); // reset seconds to 0
+      // console.log(`minutes: ${minutes}`)
+      // console.log(`minTime: ${minTime}`)
+      return minTime;
+    }
+  }
+
   return (
     <View style={styles.buttonStyle}>
       <Pressable onPress={showTimePicker}>
@@ -50,6 +81,7 @@ const TimePicker = ({selectedTime, onTimeChange}: TimePickerProps) =>{
         onCancel={hideDatePicker}
         display='spinner'
         minuteInterval={15}
+        minimumDate={getMinimumTime()}
       />
     </View>
   );

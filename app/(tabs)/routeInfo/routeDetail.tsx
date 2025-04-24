@@ -67,7 +67,7 @@ export default function RouteDetailScreen() {
       });
     }, [navigation, routeName]);
 
-  console.log('RouteDetail params:', { routeId, routeName });
+  // console.log('RouteDetail params:', { routeId, routeName });
 
   // Fetch route between stops using OSRM
   const fetchRoute = async () => {
@@ -204,7 +204,7 @@ export default function RouteDetailScreen() {
   }, [selectedStopId]);
 
   const toggleStopExpansion = (stopId: string) => {
-    console.log('Toggling stop:', stopId);
+    // console.log('Toggling stop:', stopId);
     setExpandedStop(expandedStop === stopId ? null : stopId);
     setSelectedStopId(stopId);
   };
@@ -214,10 +214,10 @@ export default function RouteDetailScreen() {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
-      console.log("Now: ", now);
+      // console.log("Now: ", now);
       const arrival = new Date(now); // Start with current date
       arrival.setHours(hours, minutes, seconds, 0);
-      console.log("Arrival time: ", arrival);
+      // console.log("Arrival time: ", arrival);
 
       if (arrival < now) {
         return null; // Return null if arrival time has passed
