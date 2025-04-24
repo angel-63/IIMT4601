@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import MapView, { Polyline, Region, Marker, UrlTile } from 'react-native-maps';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { API_BASE } from '@/app/config-api';
+import { API_BASE } from '@/config-api';
 
 const { width, height } = Dimensions.get('window');
 

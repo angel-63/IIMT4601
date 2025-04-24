@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Alert} from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-import { API_BASE } from '../config-api';
+import { API_BASE } from '../../config-api';
+import { useAuth } from '../../context/auth';
+import axios from 'axios';
 
 interface Route {
   route_id: string;
@@ -22,16 +24,18 @@ interface Route {
     sunday: string;
   };
   duration?: string;
-  nextArrival?: string; // Changed to string to match getMinutesToArrival
-  bookmarked?: boolean;
+  nextArrival?: string;
 }
+
+const BACKEND_URL = 'http://localhost:3001';
 
 export default function ScheduleScreen() {
   const [routes, setRoutes] = useState<Route[]>([]);
-  const [bookmarkedRoutes, setBookmarkedRoutes] = useState<{ [key: string]: boolean }>({});
   const [expandedRoute, setExpandedRoute] = useState('');
+  const [bookmarkLoading, setBookmarkLoading] = useState<{ [key: string]: boolean }>({});
   const router = useRouter();
   const navigation = useNavigation();
+  const { user, userId, fetchUserData } = useAuth();
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -45,22 +49,10 @@ export default function ScheduleScreen() {
           name: item.route_name,
           from: item.start,
           to: item.end,
-          // fromLocation: item.stops[0].stop_id,
-          // toLocation: item.stops[-1].stop_id,  // fuck this is in stop instead of route collection, different api
           fare: item.fare,
-          // serviceTime: item.serviceTime,
-          // duration: item.duration || 'N/A',
-          nextArrival: findNextArrival(item.stops[0]?.arrival_times || [])
-          // bookmarked: item.bookmarked || false,
+          nextArrival: findNextArrival(item.stops[0]?.arrival_times || []),
         }));
         setRoutes(fetchedRoutes);
-
-        // Initialize bookmarkedRoutes
-        const bookmarks = fetchedRoutes.reduce((acc, route) => {
-          acc[`${route.from} ↔ ${route.to}`] = route.bookmarked || false;
-          return acc;
-        }, {} as { [key: string]: boolean });
-        setBookmarkedRoutes(bookmarks);
       } catch (error) {
         console.error('API Error:', error);
         Alert.alert('Error', 'Failed to load routes');
@@ -69,11 +61,22 @@ export default function ScheduleScreen() {
     fetchRoutes();
   }, []);
 
-  const toggleBookmark = (routeKey: string) => {
-    setBookmarkedRoutes((prev) => ({
-      ...prev,
-      [routeKey]: !prev[routeKey],
-    }));
+  const toggleBookmark = async (routeId: string) => {
+    if (!userId) {
+      Alert.alert('Error', 'User ID not found. Please log in again.');
+      return;
+    }
+
+    setBookmarkLoading((prev) => ({ ...prev, [routeId]: true }));
+    try {
+      await axios.post(`${BACKEND_URL}/user/${userId}/bookmark`, { routeId });
+      await fetchUserData();
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      Alert.alert('Error', 'Failed to update bookmark.');
+    } finally {
+      setBookmarkLoading((prev) => ({ ...prev, [routeId]: false }));
+    }
   };
 
   const findNextArrival = (arrivalTimes: string[]): string => {
@@ -89,7 +92,6 @@ export default function ScheduleScreen() {
         const arrival = new Date();
         arrival.setHours(hours, minutes, seconds || 0, 0);
 
-        // If arrival time is in the past, assume it's for the next day
         if (arrival < now) {
           arrival.setDate(arrival.getDate() + 1);
         }
@@ -106,7 +108,7 @@ export default function ScheduleScreen() {
 
     return nextArrivalTime || 'N/A';
   };
-  
+
   const getMinutesToArrival = (arrivalTime: string): string | null => {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
@@ -131,14 +133,14 @@ export default function ScheduleScreen() {
     const isExpanded = expandedRoute === `${route.from} ↔ ${route.to}`;
     const routeKey = `${route.from} ↔ ${route.to}`;
     const timeDisplay = getMinutesToArrival(route.nextArrival || 'N/A');
+    const isBookmarked = user?.bookmarked?.includes(route.route_id) || false;
 
     const handleRoutePress = () => {
-      // Navigate to routeInfo/routeDetail with params
       router.push({
         pathname: '../routeInfo/routeDetail',
         params: {
           route_id: route.route_id,
-          route_name: `${route.from} → ${route.to}`
+          route_name: `${route.from} → ${route.to}`,
         },
       });
 
@@ -170,9 +172,12 @@ export default function ScheduleScreen() {
           <View style={styles.arrivalInfo}>
             <TouchableOpacity
               style={styles.bookmarkButton}
-              onPress={() => toggleBookmark(routeKey)}
+              onPress={() => toggleBookmark(route.route_id)}
+              disabled={bookmarkLoading[route.route_id]}
             >
-              {bookmarkedRoutes[routeKey] ? (
+              {bookmarkLoading[route.route_id] ? (
+                <ActivityIndicator size="small" color="#FF4444" />
+              ) : isBookmarked ? (
                 <MaterialIcons name="bookmark" size={24} color="#FF4444" />
               ) : (
                 <MaterialIcons name="bookmark-border" size={24} color="#aaa" />
@@ -214,7 +219,6 @@ export default function ScheduleScreen() {
               <View style={styles.fareInfo}>
                 <Text style={styles.fareLabel}>Fare:</Text>
                 <Text style={styles.fareValue}>Full Fare</Text>
-                {/* <Text style={styles.fareAmount}>{route.fare.full}</Text> */}
                 <Text style={styles.fareAmount}>{route.fare}</Text>
                 {route.fare.discounted && (
                   <>
