@@ -36,7 +36,7 @@ export default function ReservationLayout() {
         }}
       />
       <Stack.Screen
-        name="paymentSucess"
+        name="paymentSuccess"
         options={{
           title: 'Payment Successful',
           headerShown: true,

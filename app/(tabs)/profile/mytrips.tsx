@@ -12,12 +12,24 @@ import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { API_BASE } from '@/config-api';
 import { addMinutes, format, isToday, isFuture } from 'date-fns';
-
 import { useAuth } from '../../../context/auth';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  '(tabs)/reservation/two': {
+    route_id?: string;
+    time?: string;
+    seat?: string;
+    pickUp?: string;
+    dropOff?: string;
+  };
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface StopDetail {
   location: string;
-  time?: string; // Time is optional since not all stops will display it
+  time?: string;
 }
 
 interface TripItemProps {
@@ -30,6 +42,11 @@ interface TripItemProps {
   stops: StopDetail[];
   expanded: boolean;
   onToggleExpand: (id: string) => void;
+  routeId: string;
+  time: string;
+  seat: number;
+  pickUp: string;
+  dropOff: string;
 }
 
 const TripItem: React.FC<TripItemProps> = ({
@@ -42,7 +59,13 @@ const TripItem: React.FC<TripItemProps> = ({
   stops,
   expanded,
   onToggleExpand,
+  routeId,
+  time,
+  seat,
+  pickUp,
+  dropOff,
 }) => {
+  const navigation = useNavigation<NavigationProp>();
   const getStatusColor = () => {
     switch (status) {
       case 'Reserved':
@@ -52,6 +75,16 @@ const TripItem: React.FC<TripItemProps> = ({
       case 'Cancelled':
         return '#808080';
     }
+  };
+
+  const handleBookAgain = () => {
+    navigation.navigate('(tabs)/reservation/two', {
+      route_id: routeId,
+      time,
+      seat: seat.toString(),
+      pickUp,
+      dropOff,
+    });
   };
 
   return (
@@ -101,6 +134,13 @@ const TripItem: React.FC<TripItemProps> = ({
           <Text style={[styles.expandIconText, expanded && styles.expandIconRotated]}>
             {expanded ? "▼" : "▲"}
           </Text>
+          <TouchableOpacity
+                style={styles.bookAgainButton}
+                onPress={handleBookAgain}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.bookAgainText}>Book Again</Text>
+            </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </View>
@@ -108,7 +148,7 @@ const TripItem: React.FC<TripItemProps> = ({
 };
 
 const MyTripsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const [expandedTrips, setExpandedTrips] = useState<string[]>([]);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,7 +162,7 @@ const MyTripsScreen: React.FC = () => {
       // Fetch reservations
       const response = await axios.get(`${baseUrl}/reservations`, {
         params: {
-          user_id: userId, // Hard-coded as in index.tsx; consider passing via props or context
+          user_id: userId,
         },
       });
 
@@ -208,7 +248,6 @@ const MyTripsScreen: React.FC = () => {
       if (axios.isAxiosError(error) && error.response) {
         message = error.response.data.message || `Server error: ${error.response.status}`;
       }
-      // Optionally show an alert or toast
     } finally {
       setLoading(false);
     }
@@ -233,11 +272,12 @@ const MyTripsScreen: React.FC = () => {
     const dateHKT = new Date(item.date);
     dateHKT.setUTCHours(dateHKT.getUTCHours());
     const formattedDate = format(dateHKT, 'dd MMM HH:mm');
+    const formattedTime = format(dateHKT, 'HH:mm');
     const price = `HK$${item.seat * route.fare}`;
     const status = item.reservation_status as 'Reserved' | 'Completed' | 'Cancelled';
     const stops = [
-      { location: item.pickup_location || 'Unknown', time: format(dateHKT, 'HH:mm') },
-      { location: item.dropoff_location || 'Unknown' }, // No time for drop-off
+      { location: item.pickup_location || 'Unknown', time: formattedTime },
+      { location: item.dropoff_location || 'Unknown' },
     ];
 
     return (
@@ -251,6 +291,11 @@ const MyTripsScreen: React.FC = () => {
         stops={stops}
         expanded={expandedTrips.includes(item._id)}
         onToggleExpand={toggleExpand}
+        routeId={item.route_id}
+        time={formattedTime}
+        seat={item.seat}
+        pickUp={item.pickup_location}
+        dropOff={item.dropoff_location}
       />
     );
   };
@@ -386,6 +431,18 @@ const styles = StyleSheet.create({
   },
   expandIconRotated: {
     transform: [{ rotate: '180deg' }],
+  },
+  bookAgainButton: {
+    backgroundColor: '#FF4141',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-end',
+  },
+  bookAgainText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 
