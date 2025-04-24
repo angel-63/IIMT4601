@@ -1,4 +1,4 @@
-import { StyleSheet, Pressable, Alert } from 'react-native';
+import { StyleSheet, Pressable, Alert, Platform } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import CalendarPicker from '@/components/CalendarPicker';
 import TimePicker from '@/components/TimePicker';
@@ -11,9 +11,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
-  'reservation/two': { selectedStop?: string; label?: string };
-  'reservation/routeStops': { route_id: string; label: string };
-  'reservation/confirmReservation': {
+  '(tabs)/reservation/two': { selectedStop?: string; label?: string; route_id?: string };
+  '(tabs)/eservation/routeStops': { route_id: string; label: string };
+  '(tabs)/reservation/confirmReservation': {
     route_id: string;
     date: string;
     time: string;
@@ -24,7 +24,6 @@ type RootStackParamList = {
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
 
 export default function TabTwoScreen() {
   const params = useLocalSearchParams();
@@ -72,21 +71,13 @@ export default function TabTwoScreen() {
     navigation.setOptions({
       headerTitle: () => (
         <RoutePicker
+          selectedRoute={form.route_id}
           onSelect={(routeId) => {
             console.log('Route selected:', routeId);
             setForm({ ...form, route_id: routeId, pickUp: 'Stops', dropOff: 'Stops' });
           }}
-          context="reservation"
         />
       ),
-      headerStyle: {
-        backgroundColor: 'white', // Match RoutePicker background
-      },
-      headerTitleContainerStyle: {
-        left: 40, // Offset for back button
-        right: 10, // Minimal padding on right
-        paddingHorizontal: 0, // Remove extra padding
-      },
     });
   }, [form.route_id]);
 
@@ -114,27 +105,6 @@ export default function TabTwoScreen() {
     return true;
   };
 
-  /*
-  const checkSeatAvailability = async () => {
-    try {
-      const baseUrl = await API_BASE;
-      const response = await fetch(`${baseUrl}/shift/${stopId}`);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to check seat availability');
-      }
-
-      return data.availableseat >= form.seat;
-    } catch (error) {
-      console.error('Error checking seat availability:', error);
-      Alert.alert('Error', 'Failed to verify seat availability. Please try again.');
-      return false;
-    }
-  };
-  */
-
   const confirmReservation = () => {
     if (!validateForm()) return;
     router.push({
@@ -148,7 +118,7 @@ export default function TabTwoScreen() {
       <View style={{ flex: 11, borderBottomColor: '#A9A9A9', borderBottomWidth: 1 }}>
         <CalendarPicker
           selectedDate={form.date}
-          onDateChange={(date) => setForm({ ...form, date })}
+          onDateChange={(date) => setForm((prev) => ({ ...prev, date }))}
         />
       </View>
 
@@ -157,7 +127,7 @@ export default function TabTwoScreen() {
         <TimePicker
           selectedTime={form.time}
           selectedDate={form.date}
-          onTimeChange={(time) => setForm({ ...form, time })}
+          onTimeChange={(time) => setForm((prev) => ({ ...prev, time }))}
         />
       </View>
 
@@ -165,7 +135,7 @@ export default function TabTwoScreen() {
         <Text style={styles.colname}>Number of Seat</Text>
         <SeatCounter
           value={form.seat}
-          onValueChange={(seat) => setForm({ ...form, seat })}
+          onValueChange={(seat) => setForm((prev) => ({ ...prev, seat }))}
         />
       </View>
 
@@ -208,7 +178,6 @@ export default function TabTwoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    zIndex: -1,
   },
   title: {
     fontSize: 20,
@@ -228,21 +197,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  colname:{
-    fontWeight:'bold',
-    fontSize: 14
+  colname: {
+    fontWeight: 'bold',
+    fontSize: 14,
   },
-  buttonContainer:{
+  buttonContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 10
+    paddingVertical: 10,
   },
-  payButton:{
+  payButton: {
     fontSize: 10,
     backgroundColor: '#FF4141',
     justifyContent: 'center',
-    alignSelf:'flex-end',
+    alignSelf: 'flex-end',
     width: 160,
     padding: 10,
-    borderRadius: 10
-  }
+    borderRadius: 10,
+  },
 });

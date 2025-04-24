@@ -10,9 +10,20 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { API_BASE } from '@/config-api';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+// Define the navigation stack
+type RootStackParamList = {
+  'two': { selectedStop?: string; label?: string; route_id?: string };
+  '(tabs)/reservation/routeStops': { route_id: string; label: string };
+};
+
+// Define the navigation prop type
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 
 type Route = {
     route_id: string;
@@ -36,9 +47,10 @@ type Stop = {
 export default function RouteStopsScreen() {
     const [stops, setStops] = useState<Stop[]>([]);
     const [loading, setLoading] = useState(true);
-    const navigation = useNavigation();
+    const navigation = useNavigation<NavigationProp>();
     const params = useLocalSearchParams();
     const {route_id, label} = params as {route_id: string; label: string};
+    
 
     const fetchStopById = async (stopId: string): Promise<Stop | null> => {
         try {
@@ -59,7 +71,7 @@ export default function RouteStopsScreen() {
         navigation.setOptions({
         headerTitle: `Select ${label} Stop`,
         headerLeft: () => (
-            <Pressable onPress={() => router.push('/(tabs)/reservation/two')} style={{ marginLeft: 15 }}>
+            <Pressable onPress={() => navigation.navigate("two",  { selectedStop: 'Stops', label, route_id })} style={{ marginLeft: 15 }}>
             <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
             </Pressable>
         ),
@@ -106,7 +118,7 @@ export default function RouteStopsScreen() {
     // routeStops.tsx
     const handleStopSelect = (stop: Stop) => {
         console.log('Navigating with stop:', stop.name);
-        router.push( {pathname: '/(tabs)/reservation/two', params: { selectedStop: stop.name, label }} );
+        navigation.navigate("two", { selectedStop: stop.name, label, route_id });
     };
 
     const renderStopItem = (stop: Stop, index: number) => (

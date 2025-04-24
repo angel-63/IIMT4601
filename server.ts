@@ -481,14 +481,14 @@ app.post('/user/:userId/settings', async (req, res) => {
 // POST reservation
 app.post('/reservations', async (req, res) => { 
   try { 
-    const { route_id, date, time, seat, pickUp, dropOff, user_id } = req.body;
+    const { route_id, date, time, seat, pickUp, dropOff, user_id,  } = req.body;
 
     if (!route_id || 
       !date || 
       !time || 
       !seat || 
       !pickUp || 
-      !dropOff || 
+      !dropOff ||
       !user_id) {
       return res.status(400).json({ error: 'All fields are required' });
     }
@@ -507,7 +507,7 @@ app.post('/reservations', async (req, res) => {
       seat,
       reservation_id: id,
       reservation_status: "Reserved",
-      user_id, 
+      user_id,
       trip_id: id,
       payment_status: "Pending",
       route_id,      
@@ -531,7 +531,7 @@ app.post('/reservations', async (req, res) => {
 // GET reservation details based on userID or reservation ID
 app.get('/reservations', async (req, res) => {
   try {
-    const { user_id, reservation_id, reservation_status, date_gte } = req.query as { user_id?: string; reservation_id?: string; reservation_status?: string; date_gte?: Date };
+    const { user_id, reservation_status, date_gte } = req.query as { user_id?: string; reservation_status?: string; date_gte?: Date };
 
     // Validate query parameters
     if (!user_id) {
@@ -542,9 +542,6 @@ app.get('/reservations', async (req, res) => {
     const query: ReservationQuery = {};
     if (user_id) {
       query.user_id = user_id;
-    }
-    if (reservation_id) {
-      query.reservation_id = reservation_id;
     }
 
     if (reservation_status) {

@@ -97,6 +97,9 @@ export default function ScheduleScreen() {
         }
 
         const diffMinutes = (arrival.getTime() - now.getTime()) / 1000 / 60;
+        if (isNaN(diffMinutes)){
+          return 'N/A'
+        }
         if (diffMinutes >= 0 && diffMinutes < minDiff) {
           minDiff = diffMinutes;
           nextArrivalTime = time;
@@ -121,6 +124,7 @@ export default function ScheduleScreen() {
       }
 
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
+      if (isNaN(diffMinutes)) return 'N/A';
       if (diffMinutes <= 0) return 'Arrived';
       return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''}`;
     } catch (error) {
@@ -155,7 +159,7 @@ export default function ScheduleScreen() {
         <TouchableOpacity style={styles.routeHeader} onPress={handleRoutePress}>
           <View style={styles.routeInfo}>
             <View style={styles.routeMainInfo}>
-              <Text style={styles.routeName}>{route.from} ↔ {route.to}</Text>
+              <Text style={styles.routeName}>{route.from} → {route.to}</Text>
               <TouchableOpacity
                 style={styles.infoButton}
                 onPress={() => setExpandedRoute(isExpanded ? '' : routeKey)}
@@ -192,7 +196,7 @@ export default function ScheduleScreen() {
             ) : (
               <View>
               <Text style={[styles.arrivalTime, {textAlign:'center'}]}>
-                {timeDisplay === 'Arrived' ? 'Arrived' : '-'}
+                {timeDisplay === 'Arrived' ? 'Arrived' : 'N/A'}
               </Text>
               <Text style={styles.arrivalLabel}></Text>
               <Text style={styles.arrivalNote}></Text>
@@ -364,6 +368,7 @@ const styles = StyleSheet.create({
   },
   arrivalInfo: {
     alignItems: 'center',
+    width: 100
   },
   bookmarkButton: {
     marginBottom: 2,

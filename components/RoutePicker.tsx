@@ -154,7 +154,7 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: screenWidth,
+    width: screenWidth*0.8,
     alignItems: 'center',
   },
   header: {
