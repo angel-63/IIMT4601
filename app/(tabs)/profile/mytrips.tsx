@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,15 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
+import { API_BASE } from '@/config-api';
+import { addMinutes, format, isToday, isFuture } from 'date-fns';
+
+import { useAuth } from '../../../context/auth';
 
 interface StopDetail {
   location: string;
-  time: string;
+  time?: string; // Time is optional since not all stops will display it
 }
 
 interface TripItemProps {
@@ -20,8 +25,6 @@ interface TripItemProps {
   from: string;
   to: string;
   date: string;
-  distance: string;
-  duration: string;
   price: string;
   status: 'Reserved' | 'Completed' | 'Cancelled';
   stops: StopDetail[];
@@ -34,8 +37,6 @@ const TripItem: React.FC<TripItemProps> = ({
   from,
   to,
   date,
-  distance,
-  duration,
   price,
   status,
   stops,
@@ -71,9 +72,8 @@ const TripItem: React.FC<TripItemProps> = ({
           </View>
         </View>
         
-        <Text style={styles.dateText}>{date}</Text>
         <View style={styles.tripDetails}>
-          <Text style={styles.detailsText}>{distance} · {duration}</Text>
+          <Text style={styles.dateText}>{date}</Text>
           <Text style={styles.priceText}>{price}</Text>
         </View>
         
@@ -89,7 +89,9 @@ const TripItem: React.FC<TripItemProps> = ({
                   )}
                 </View>
                 <Text style={styles.stopLocation}>{stop.location}</Text>
-                <Text style={styles.stopTime}>{stop.time}</Text>
+                {index === 0 && stop.time && (
+                  <Text style={styles.stopTime}>{stop.time}</Text>
+                )}
               </View>
             ))}
           </View>
@@ -107,95 +109,164 @@ const TripItem: React.FC<TripItemProps> = ({
 
 const MyTripsScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [expandedTrips, setExpandedTrips] = useState<string[]>(['today']);
+  const [expandedTrips, setExpandedTrips] = useState<string[]>([]);
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [routeDetails, setRouteDetails] = useState<{ [key: string]: { start: string; end: string; fare: number } }>({});
+  const { userId } = useAuth();
+
+  const fetchReservations = async () => {
+    try {
+      const baseUrl = await API_BASE;
+
+      // Fetch reservations
+      const response = await axios.get(`${baseUrl}/reservations`, {
+        params: {
+          user_id: userId, // Hard-coded as in index.tsx; consider passing via props or context
+        },
+      });
+
+      const reservations = response.data.reservations;
+
+      // Fetch route details for each unique route_id
+      const uniqueRouteIds = [...new Set(reservations.map((item: any) => item.route_id))];
+      const routePromises = uniqueRouteIds.map((routeId: string) =>
+        axios.get(`${baseUrl}/routes/${routeId}`).catch((error) => {
+          console.error(`Error fetching route ${routeId}:`, error);
+          return { data: null };
+        })
+      );
+      const routeResponses = await Promise.all(routePromises);
+      const routeDetailsMap = routeResponses.reduce((acc: any, response) => {
+        if (response.data) {
+          const route = response.data;
+          acc[route.route_id] = { start: route.start, end: route.end, fare: route.fare };
+        }
+        return acc;
+      }, {});
+      setRouteDetails(routeDetailsMap);
+
+      // Group reservations by "Later", "Today", or "Earlier"
+      const grouped = reservations.reduce(
+        (acc: any, item: any) => {
+          const dateHKT = new Date(item.date);
+          dateHKT.setUTCHours(dateHKT.getUTCHours());
+          let dateKey: string;
+          if (isFuture(dateHKT)) {
+            dateKey = 'Later';
+          } else if (isToday(dateHKT)) {
+            dateKey = 'Today';
+          } else {
+            dateKey = 'Earlier';
+          }
+          let group = acc.find((g: any) => g.title === dateKey);
+          if (!group) {
+            group = { title: dateKey, data: [] };
+            acc.push(group);
+          }
+          group.data.push(item);
+          return acc;
+        },
+        [
+          { title: 'Later', data: [] },
+          { title: 'Today', data: [] },
+          { title: 'Earlier', data: [] },
+        ]
+      );
+
+      // Filter non-empty groups and sort: Later, Today, Earlier
+      const filteredGroups = grouped.filter((group: any) => group.data.length > 0);
+      filteredGroups.sort((a: any, b: any) => {
+        if (a.title === 'Later') return -1;
+        if (b.title === 'Later') return 1;
+        if (a.title === 'Today') return -1;
+        if (b.title === 'Today') return 1;
+        return 0;
+      });
+
+      // Sort items within groups (newest first)
+      filteredGroups.forEach((group: any) => {
+        group.data.sort((a: any, b: any) => new Date(b.date) - new Date(a.date));
+      });
+
+      // Flatten into [header, item, item, ...]
+      const flatData = filteredGroups.reduce((acc: any, group: any) => {
+        acc.push({ type: 'header', title: group.title });
+        acc.push(
+          ...group.data.map((item: any) => ({
+            type: 'item',
+            ...item,
+          }))
+        );
+        return acc;
+      }, []);
+
+      setData(flatData);
+    } catch (error: any) {
+      console.error('Error fetching reservations:', error);
+      let message = 'Failed to fetch reservations';
+      if (axios.isAxiosError(error) && error.response) {
+        message = error.response.data.message || `Server error: ${error.response.status}`;
+      }
+      // Optionally show an alert or toast
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReservations();
+  }, []);
 
   const toggleExpand = (tripId: string) => {
-    setExpandedTrips(prev => 
-      prev.includes(tripId)
-        ? prev.filter(id => id !== tripId)
-        : [...prev, tripId]
+    setExpandedTrips((prev) =>
+      prev.includes(tripId) ? prev.filter((id) => id !== tripId) : [...prev, tripId]
+    );
+  };
+
+  const renderTripItem = (item: any) => {
+    if (item.type === 'header') {
+      return <Text style={styles.sectionTitle}>{item.title}</Text>;
+    }
+
+    const route = routeDetails[item.route_id] || { start: 'Unknown', end: 'Unknown', fare: 0 };
+    const dateHKT = new Date(item.date);
+    dateHKT.setUTCHours(dateHKT.getUTCHours());
+    const formattedDate = format(dateHKT, 'dd MMM HH:mm');
+    const price = `HK$${item.seat * route.fare}`;
+    const status = item.reservation_status as 'Reserved' | 'Completed' | 'Cancelled';
+    const stops = [
+      { location: item.pickup_location || 'Unknown', time: format(dateHKT, 'HH:mm') },
+      { location: item.dropoff_location || 'Unknown' }, // No time for drop-off
+    ];
+
+    return (
+      <TripItem
+        id={item._id}
+        from={route.start}
+        to={route.end}
+        date={formattedDate}
+        price={price}
+        status={status}
+        stops={stops}
+        expanded={expandedTrips.includes(item._id)}
+        onToggleExpand={toggleExpand}
+      />
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-
       <ScrollView style={styles.content}>
-        {/* Today Section */}
-        <Text style={styles.sectionTitle}>Today</Text>
-        <TripItem
-          id="today"
-          from="Mong Kok"
-          to="Kowloon Bay"
-          date="04 Apr 19:20"
-          distance="5.2 km"
-          duration="13 min"
-          price="HK$20.00"
-          status="Reserved"
-          stops={[
-            { location: "Mong Kok Rd", time: "19:20" },
-            { location: "Lam Hing St.", time: "19:33" }
-          ]}
-          expanded={expandedTrips.includes('today')}
-          onToggleExpand={toggleExpand}
-        />
-
-        {/* Past 3 days Section */}
-        <Text style={styles.sectionTitle}>Past 3 days</Text>
-        <TripItem
-          id="past1"
-          from="Mong Kok"
-          to="Kowloon Bay"
-          date="03 Apr 19:20"
-          distance="5.2 km"
-          duration="17 min"
-          price="HK$20.00"
-          status="Completed"
-          stops={[
-            { location: "Mong Kok Rd", time: "19:20" },
-            { location: "Lam Hing St.", time: "19:37" }
-          ]}
-          expanded={expandedTrips.includes('past1')}
-          onToggleExpand={toggleExpand}
-        />
-        <TripItem
-          id="past2"
-          from="Mong Kok"
-          to="Kowloon Bay"
-          date="02 Apr 18:49"
-          distance="5.2 km"
-          duration="15 min"
-          price="HK$20.00"
-          status="Cancelled"
-          stops={[
-            { location: "Mong Kok Rd", time: "18:49" },
-            { location: "Lam Hing St.", time: "19:04" }
-          ]}
-          expanded={expandedTrips.includes('past2')}
-          onToggleExpand={toggleExpand}
-        />
-
-        {/* Earlier Section */}
-        <Text style={styles.sectionTitle}>Earlier</Text>
-        <TripItem
-          id="earlier1"
-          from="Kwun Tong"
-          to="Lok Ma Chau"
-          date="17 Apr 09:21"
-          distance="49.8 km"
-          duration="1 hr 9 min"
-          price="HK$25.00"
-          status="Completed"
-          stops={[
-            { location: "Kwun Tong MTR", time: "09:21" },
-            { location: "Lok Ma Chau Station", time: "10:30" }
-          ]}
-          expanded={expandedTrips.includes('earlier1')}
-          onToggleExpand={toggleExpand}
-        />
+        {loading ? (
+          <Text style={{ padding: 16 }}>Loading...</Text>
+        ) : data.length === 0 ? (
+          <Text style={{ padding: 16 }}>No reservations found.</Text>
+        ) : (
+          data.map((item, index) => <View key={index}>{renderTripItem(item)}</View>)
+        )}
       </ScrollView>
-
     </SafeAreaView>
   );
 };
@@ -204,25 +275,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#CC3333',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginLeft: 8,
   },
   content: {
     flex: 1,
@@ -271,15 +323,13 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 16,
-    marginTop: 8,
+    color: '#666',
   },
   tripDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  detailsText: {
-    color: '#666',
+    alignItems: 'center',
+    marginTop: 8,
   },
   priceText: {
     fontSize: 16,
@@ -326,15 +376,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  receiptButton: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
-  },
-  receiptText: {
-    fontSize: 16,
-    fontWeight: '500',
-    textDecorationLine: 'underline',
-  },
   expandIconContainer: {
     alignItems: 'center',
     marginTop: 8,
@@ -345,27 +386,6 @@ const styles = StyleSheet.create({
   },
   expandIconRotated: {
     transform: [{ rotate: '180deg' }],
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    backgroundColor: '#CC3333',
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 10,
-  },
-  activeNavItem: {
-    backgroundColor: '#AA2222',
-  },
-  navIcon: {
-    fontSize: 24,
-  },
-  navText: {
-    color: '#FFF',
-    marginTop: 5,
   },
 });
 

@@ -37,6 +37,115 @@ mongoose.connect(uri)
   .then(() => console.log('Connected to MongoDB'))
   .catch((error: Error) => console.error('MongoDB connection error:', error.message));
 
+  // Function to send push notification via Expo
+async function sendPushNotification(pushToken: string, message: string) {
+  try {
+    await axios.post('https://exp.host/--/api/v2/push/send', {
+      to: pushToken,
+      sound: 'default',
+      title: 'Minibus Reservation',
+      body: message,
+      data: { type: 'reservation' },
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    console.log(`Push notification sent to ${pushToken}`);
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+  }
+}
+
+// Function to generate notifications based on reservation
+async function generateNotifications(reservation: any, userId: string) {
+  const user = await User.findOne({ user_id: userId });
+  if (!user || !user.settings?.notificationsEnabled) return;
+
+  const reservationTime = new Date(reservation.date);
+  const notifications: any[] = [];
+
+  // 1. Reservation Reminder (15 minutes before)
+  if (user.settings.reservationReminder) {
+    const reminderTime = new Date(reservationTime.getTime() - 15 * 60 * 1000);
+    notifications.push({
+      reservation_id: reservation.reservation_id,
+      user_id: userId,
+      message: "Your reservation is in 15 minutes.",
+      send_time: reminderTime,
+      type: 'ReservationReminder',
+      status: 'Pending',
+    });
+  }
+
+  // 2. Allocated Shift Reminder (when shift_id is assigned)
+  if (user.settings.allocatedShiftReminder && reservation.shift_id) {
+    notifications.push({
+      reservation_id: reservation.reservation_id,
+      user_id: userId,
+      message: "Your reservation has been assigned a shift.",
+      send_time: new Date(), // Send immediately
+      type: 'AllocatedShiftReminder',
+      status: 'Pending',
+    });
+  }
+
+  // 3. Reserved Seat Reminder (xx minutes before arrival)
+  if (user.settings.reservedSeatReminder && reservation.shift_id) {
+    const route = await Route.findOne({ route_id: reservation.route_id });
+    if (route && route.stops) {
+      const stop = route.stops.find((s: { stop_id: any; }) => s.stop_id === reservation.pickup_location);
+      if (stop && stop.arrival_times.length > 0) {
+        const arrivalTimeStr = stop.arrival_times.find((time: string | any[]) => time.includes(reservation.shift_id));
+        if (arrivalTimeStr) {
+          const arrivalTime = new Date(`${reservation.date.toISOString().split('T')[0]}T${arrivalTimeStr}+08:00`);
+          const minutesBefore = Math.min(user.settings.reservedSeatReminderBeforeMinutes || 15, 15);
+          const reminderTime = new Date(arrivalTime.getTime() - minutesBefore * 60 * 1000);
+          notifications.push({
+            reservation_id: reservation.reservation_id,
+            user_id: userId,
+            message: `Your minibus is arriving in ${minutesBefore} minutes at ${reservation.pickup_location}.`,
+            send_time: reminderTime,
+            type: 'ReservedSeatReminder',
+            status: 'Pending',
+          });
+        }
+      }
+    }
+  }
+
+  // Save notifications to database
+  if (notifications.length > 0) {
+    await Notification.insertMany(notifications);
+    console.log(`Generated ${notifications.length} notifications for reservation ${reservation.reservation_id}`);
+  }
+}
+
+// Background task to check and send notifications
+async function startNotificationScheduler() {
+  setInterval(async () => {
+    const now = new Date();
+    const notifications = await Notification.find({
+      status: 'Pending',
+      send_time: { $lte: now },
+    });
+
+    for (const notification of notifications) {
+      const user = await User.findOne({ user_id: notification.user_id });
+      if (user && user.pushToken) {
+        await sendPushNotification(user.pushToken, notification.message);
+        notification.status = 'Sent';
+        await notification.save();
+      } else {
+        notification.status = 'Failed';
+        await notification.save();
+        console.log(`No push token for user ${notification.user_id}`);
+      }
+    }
+  }, 60 * 1000); // Check every minute
+}
+
+// Start the scheduler
+startNotificationScheduler();
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
@@ -213,12 +322,14 @@ app.get('/user/:userId', async (req: express.Request, res: express.Response) => 
 app.put('/user/:userId', async (req: express.Request, res: express.Response) => {
   try {
     const { userId } = req.params;
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, pushToken } = req.body;
 
-    const updateData: any = { name, email, phone };
-    if (password) {
-      updateData.password = await bcrypt.hash(password, 10);
-    }
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (phone) updateData.phone = phone;
+    if (password) updateData.password = await bcrypt.hash(password, 10);
+    if (pushToken) updateData.pushToken = pushToken;
 
     const user = await User.findOneAndUpdate(
       { user_id: { $regex: `^${userId}$`, $options: 'i' } },
@@ -231,6 +342,7 @@ app.put('/user/:userId', async (req: express.Request, res: express.Response) => 
     }
 
     res.json({ success: true, user });
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     res.status(500).json({ success: false, message });
@@ -322,24 +434,18 @@ app.post('/user/:userId/settings', async (req, res) => {
   }
 });
 
-// Log all registered routes for debugging
-app._router.stack.forEach((middleware: any) => {
-  if (middleware.route) {
-    console.log('Registered route:', middleware.route.path);
-  }
-});
-
 // POST reservation
 app.post('/reservations', async (req, res) => { 
   try { 
-    const { route_id, date, time, seat, pickUp, dropOff } = req.body;
+    const { route_id, date, time, seat, pickUp, dropOff, user_id } = req.body;
 
     if (!route_id || 
       !date || 
       !time || 
       !seat || 
       !pickUp || 
-      !dropOff) {
+      !dropOff || 
+      !user_id) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -357,7 +463,7 @@ app.post('/reservations', async (req, res) => {
       seat,
       reservation_id: id,
       reservation_status: "Reserved",
-      user_id: "USER101",
+      user_id, 
       trip_id: id,
       payment_status: "Pending",
       route_id,      
@@ -365,9 +471,11 @@ app.post('/reservations', async (req, res) => {
     
     await reservation.save();
     
+    await generateNotifications(reservation, user_id);
     res.status(201).json({ 
       message: 'Reservation created successfully',
-      reservation 
+      reservation, 
+      reservation_id: reservation.reservation_id
     });
     
     } catch (error: unknown) { 
@@ -426,115 +534,6 @@ app.get('/reservations', async (req, res) => {
   }
 });
 
-// Function to send push notification via Expo
-async function sendPushNotification(pushToken: string, message: string) {
-  try {
-    await axios.post('https://exp.host/--/api/v2/push/send', {
-      to: pushToken,
-      sound: 'default',
-      title: 'Minibus Reservation',
-      body: message,
-      data: { type: 'reservation' },
-    }, {
-      headers: { 'Content-Type': 'application/json' }
-    });
-    console.log(`Push notification sent to ${pushToken}`);
-  } catch (error) {
-    console.error('Error sending push notification:', error);
-  }
-}
-
-// Function to generate notifications based on reservation
-async function generateNotifications(reservation: any, userId: string) {
-  const user = await User.findOne({ user_id: userId });
-  if (!user || !user.settings?.notificationsEnabled) return;
-
-  const reservationTime = new Date(reservation.date);
-  const notifications: any[] = [];
-
-  // 1. Reservation Reminder (15 minutes before)
-  if (user.settings.reservationReminder) {
-    const reminderTime = new Date(reservationTime.getTime() - 15 * 60 * 1000);
-    notifications.push({
-      reservation_id: reservation.reservation_id,
-      user_id: userId,
-      message: "Your reservation is in 15 minutes.",
-      send_time: reminderTime,
-      type: 'ReservationReminder',
-      status: 'Pending',
-    });
-  }
-
-  // 2. Allocated Shift Reminder (when shift_id is assigned)
-  if (user.settings.allocatedShiftReminder && reservation.shift_id) {
-    notifications.push({
-      reservation_id: reservation.reservation_id,
-      user_id: userId,
-      message: "Your reservation has been assigned a shift.",
-      send_time: new Date(), // Send immediately
-      type: 'AllocatedShiftReminder',
-      status: 'Pending',
-    });
-  }
-
-  // 3. Reserved Seat Reminder (xx minutes before arrival)
-  if (user.settings.reservedSeatReminder && reservation.shift_id) {
-    const route = await Route.findOne({ route_id: reservation.route_id });
-    if (route && route.stops) {
-      const stop = route.stops.find((s: { stop_id: any; }) => s.stop_id === reservation.pickup_location);
-      if (stop && stop.arrival_times.length > 0) {
-        const arrivalTimeStr = stop.arrival_times.find((time: string | any[]) => time.includes(reservation.shift_id));
-        if (arrivalTimeStr) {
-          const arrivalTime = new Date(`${reservation.date.toISOString().split('T')[0]}T${arrivalTimeStr}+08:00`);
-          const minutesBefore = Math.min(user.settings.reservedSeatReminderBeforeMinutes || 15, 15);
-          const reminderTime = new Date(arrivalTime.getTime() - minutesBefore * 60 * 1000);
-          notifications.push({
-            reservation_id: reservation.reservation_id,
-            user_id: userId,
-            message: `Your minibus is arriving in ${minutesBefore} minutes at ${reservation.pickup_location}.`,
-            send_time: reminderTime,
-            type: 'ReservedSeatReminder',
-            status: 'Pending',
-          });
-        }
-      }
-    }
-  }
-
-  // Save notifications to database
-  if (notifications.length > 0) {
-    await Notification.insertMany(notifications);
-    console.log(`Generated ${notifications.length} notifications for reservation ${reservation.reservation_id}`);
-  }
-}
-
-// Background task to check and send notifications
-async function startNotificationScheduler() {
-  setInterval(async () => {
-    const now = new Date();
-    const notifications = await Notification.find({
-      status: 'Pending',
-      send_time: { $lte: now },
-    });
-
-    for (const notification of notifications) {
-      const user = await User.findOne({ user_id: notification.user_id });
-      if (user && user.pushToken) {
-        await sendPushNotification(user.pushToken, notification.message);
-        notification.status = 'Sent';
-        await notification.save();
-      } else {
-        notification.status = 'Failed';
-        await notification.save();
-        console.log(`No push token for user ${notification.user_id}`);
-      }
-    }
-  }, 60 * 1000); // Check every minute
-}
-
-// Start the scheduler
-startNotificationScheduler();
-
 // GET notifications for a user
 app.get('/notifications/:userId', async (req, res) => {
   try {
@@ -586,3 +585,9 @@ app.put('/reservations/:reservationId', async (req, res) => {
   }
 });
 
+// Log all registered routes for debugging
+app._router.stack.forEach((middleware: any) => {
+  if (middleware.route) {
+    console.log('Registered route:', middleware.route.path);
+  }
+});
