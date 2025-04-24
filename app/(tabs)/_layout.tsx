@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Platform } from 'react-native';
 
 import Colors from '@/constants/Colors';
@@ -24,6 +24,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const navigation = useNavigation();
   const { isAuthenticated, userId } = useAuth();
+  const router = useRouter();
 
   // Call hooks before any conditional logic
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function TabLayout() {
   if (!isAuthenticated) {
     // Use setTimeout to ensure navigation happens after hooks
     setTimeout(() => {
-      navigation.navigate('(auth)/login');
+      router.push('/(auth)/login');
     }, 0);
     return null; // Return null to avoid rendering tabs
   }

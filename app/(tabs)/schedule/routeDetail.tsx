@@ -41,16 +41,23 @@ type CombinedStop = {
   arrival_times: string[];
 };
 
+type Shift = {
+  busNumber: string;
+  nextStation: string;
+};
+
 export default function RouteDetailScreen() {
   const [activeTab, setActiveTab] = useState('arrivalSchedule');
   const [route, setRoute] = useState<Route | null>(null);
   const [stops, setStops] = useState<CombinedStop[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [expandedStop, setExpandedStop] = useState<string | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [routeCoords, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [isLoadingRoute, setIsLoadingRoute] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [isMapReady, setIsMapReady] = useState(false); // Track map readiness
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [loadingShifts, setLoadingShifts] = useState(false);
   const mapRef = useRef<MapView>(null);
   const markerRef = useRef<Marker>(null);
 
@@ -64,6 +71,25 @@ export default function RouteDetailScreen() {
       headerTitle: routeName || 'Route Details',
     });
   }, [navigation, routeName]);
+
+  // Fetch shifts for live tracker
+  const fetchShifts = async () => {
+    try {
+      setLoadingShifts(true);
+      const baseUrl = await API_BASE;
+      const response = await fetch(`${baseUrl}/shifts/${routeId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch shifts');
+      }
+      const data = await response.json();
+      setShifts(data.shifts || []);
+    } catch (error) {
+      console.error('Error fetching shifts:', error);
+      Alert.alert('Error', 'Failed to load live tracker data');
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
 
   // Fetch route between stops using OSRM
   const fetchRoute = async () => {
@@ -166,6 +192,13 @@ export default function RouteDetailScreen() {
     }
   }, [stops]);
 
+  // Fetch shifts when activeTab changes to liveRouteTracker
+  useEffect(() => {
+    if (activeTab === 'liveRouteTracker' && routeId) {
+      fetchShifts();
+    }
+  }, [activeTab, routeId]);
+
   // Synchronize map region and callout when selectedStopId changes
   useEffect(() => {
     if (selectedStopId && isMapReady) {
@@ -211,6 +244,11 @@ export default function RouteDetailScreen() {
       const now = new Date();
       const arrival = new Date(now);
       arrival.setHours(hours, minutes, seconds, 0);
+
+      if (arrival < now) {
+        return null;
+      }
+
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
       if (diffMinutes <= 0) {
         return 'N/A';
@@ -318,7 +356,7 @@ export default function RouteDetailScreen() {
                 longitudeDelta: 0.008,
               }}
               zoomEnabled={true}
-              onMapReady={() => setIsMapReady(true)} // Set map as ready
+              onMapReady={() => setIsMapReady(true)}
             >
               <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {stops.map((stop) => (
@@ -397,26 +435,25 @@ export default function RouteDetailScreen() {
         ) : (
           <View style={styles.liveTracker}>
             <Text style={styles.liveTrackerHeader}>Live Bus Locations</Text>
-            <View style={styles.busStatusContainer}>
-              <View style={styles.busStatusItem}>
-                <View style={styles.busIcon}>
-                  <MaterialIcons name="directions-bus" size={24} color="white" />
-                </View>
-                <View style={styles.busInfo}>
-                  <Text style={styles.busNumber}>NH5094</Text>
-                  <Text style={styles.busStatus}>2 mins from Sincere Podium</Text>
-                </View>
+            {loadingShifts ? (
+              <ActivityIndicator size="large" color="#e05d44" />
+            ) : shifts.length > 0 ? (
+              <View style={styles.busStatusContainer}>
+                {shifts.map((shift, index) => (
+                  <View key={index} style={styles.busStatusItem}>
+                    <View style={styles.busIcon}>
+                      <MaterialIcons name="directions-bus" size={24} color="white" />
+                    </View>
+                    <View style={styles.busInfo}>
+                      <Text style={styles.busNumber}>{shift.busNumber}</Text>
+                      <Text style={styles.busStatus}>Next station: {shift.nextStation}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-              <View style={styles.busStatusItem}>
-                <View style={styles.busIcon}>
-                  <MaterialIcons name="directions-bus" size={24} color="white" />
-                </View>
-                <View style={styles.busInfo}>
-                  <Text style={styles.busNumber}>WF4525</Text>
-                  <Text style={styles.busStatus}>8 mins from Kowloon Hospital</Text>
-                </View>
-              </View>
-            </View>
+            ) : (
+              <Text style={styles.noDataText}>No live bus data available</Text>
+            )}
           </View>
         )}
       </ScrollView>
