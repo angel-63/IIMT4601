@@ -481,7 +481,7 @@ app.post('/user/:userId/settings', async (req, res) => {
 // POST reservation
 app.post('/reservations', async (req, res) => { 
   try { 
-    const { route_id, date, time, seat, pickUp, dropOff, user_id, user_id } = req.body;
+    const { route_id, date, time, seat, pickUp, dropOff, user_id,  } = req.body;
 
     if (!route_id || 
       !date || 
@@ -489,7 +489,6 @@ app.post('/reservations', async (req, res) => {
       !seat || 
       !pickUp || 
       !dropOff ||
-    !user_id || 
       !user_id) {
       return res.status(400).json({ error: 'All fields are required' });
     }
