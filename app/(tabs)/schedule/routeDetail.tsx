@@ -1,4 +1,3 @@
-// RouteDetail.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
@@ -42,16 +41,23 @@ type CombinedStop = {
   arrival_times: string[];
 };
 
+type Shift = {
+  busNumber: string;
+  nextStation: string;
+};
+
 export default function RouteDetailScreen() {
   const [activeTab, setActiveTab] = useState('arrivalSchedule');
   const [route, setRoute] = useState<Route | null>(null);
   const [stops, setStops] = useState<CombinedStop[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [expandedStop, setExpandedStop] = useState<string | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [routeCoords, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [isLoadingRoute, setIsLoadingRoute] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [isMapReady, setIsMapReady] = useState(false); // Track map readiness
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [loadingShifts, setLoadingShifts] = useState(false);
   const mapRef = useRef<MapView>(null);
   const markerRef = useRef<Marker>(null);
 
@@ -60,14 +66,30 @@ export default function RouteDetailScreen() {
   const routeId = params.route_id as string;
   const routeName = params.route_name as string;
 
-
   useEffect(() => {
-      navigation.setOptions({
-        headerTitle: routeName || 'Route Details',
-      });
-    }, [navigation, routeName]);
+    navigation.setOptions({
+      headerTitle: routeName || 'Route Details',
+    });
+  }, [navigation, routeName]);
 
-  // console.log('RouteDetail params:', { routeId, routeName });
+  // Fetch shifts for live tracker
+  const fetchShifts = async () => {
+    try {
+      setLoadingShifts(true);
+      const baseUrl = await API_BASE;
+      const response = await fetch(`${baseUrl}/shifts/${routeId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch shifts');
+      }
+      const data = await response.json();
+      setShifts(data.shifts || []);
+    } catch (error) {
+      console.error('Error fetching shifts:', error);
+      Alert.alert('Error', 'Failed to load live tracker data');
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
 
   // Fetch route between stops using OSRM
   const fetchRoute = async () => {
@@ -113,7 +135,6 @@ export default function RouteDetailScreen() {
     const fetchData = async () => {
       setLoading(true);
       try {
-
         const baseUrl = await API_BASE;
 
         // Fetch route details
@@ -171,6 +192,13 @@ export default function RouteDetailScreen() {
     }
   }, [stops]);
 
+  // Fetch shifts when activeTab changes to liveRouteTracker
+  useEffect(() => {
+    if (activeTab === 'liveRouteTracker' && routeId) {
+      fetchShifts();
+    }
+  }, [activeTab, routeId]);
+
   // Synchronize map region and callout when selectedStopId changes
   useEffect(() => {
     if (selectedStopId && isMapReady) {
@@ -193,6 +221,7 @@ export default function RouteDetailScreen() {
       }
     }
   }, [selectedStopId, stops, isMapReady]);
+
   // Show callout when selectedStopId changes
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -204,7 +233,6 @@ export default function RouteDetailScreen() {
   }, [selectedStopId]);
 
   const toggleStopExpansion = (stopId: string) => {
-    // console.log('Toggling stop:', stopId);
     setExpandedStop(expandedStop === stopId ? null : stopId);
     setSelectedStopId(stopId);
   };
@@ -214,13 +242,11 @@ export default function RouteDetailScreen() {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
-      // console.log("Now: ", now);
-      const arrival = new Date(now); // Start with current date
+      const arrival = new Date(now);
       arrival.setHours(hours, minutes, seconds, 0);
-      // console.log("Arrival time: ", arrival);
 
       if (arrival < now) {
-        return null; // Return null if arrival time has passed
+        return null;
       }
 
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
@@ -248,27 +274,27 @@ export default function RouteDetailScreen() {
           <Text style={styles.stopName}>{stop.name}</Text>
           {expandedStop === stop.stop_id && (
             <View style={styles.arrivalContainer}>
-            {stop.arrival_times.length > 0 ? (
-              stop.arrival_times
-                .map((arrivalTime, i) => {
-                  const timeDisplay = getMinutesToArrival(arrivalTime);
-                  return timeDisplay ? (
-                    <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
-                      <View style={styles.busIconContainer}>
-                        <MaterialIcons name="directions-bus" size={18} color="#666" />
-                        <Text style={styles.routeNumber}>{route?.name}</Text>
+              {stop.arrival_times.length > 0 ? (
+                stop.arrival_times
+                  .map((arrivalTime, i) => {
+                    const timeDisplay = getMinutesToArrival(arrivalTime);
+                    return timeDisplay ? (
+                      <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
+                        <View style={styles.busIconContainer}>
+                          <MaterialIcons name="directions-bus" size={18} color="#666" />
+                          <Text style={styles.routeNumber}>{route?.name}</Text>
+                        </View>
+                        <Text style={styles.arrivalTime}>{timeDisplay}</Text>
                       </View>
-                      <Text style={styles.arrivalTime}>{timeDisplay}</Text>
-                    </View>
-                  ) : null;
-                })
-                .filter((item) => item !== null) // Filter out null entries
-            ) : (
-              <Text style={styles.arrivalTime}>No arrival times available</Text>
-            )}
-          </View>
-        )}
-      </View>
+                    ) : null;
+                  })
+                  .filter((item) => item !== null)
+              ) : (
+                <Text style={styles.arrivalTime}>No arrival times available</Text>
+              )}
+            </View>
+          )}
+        </View>
         <View style={styles.stopAction}>
           <MaterialIcons
             name={expandedStop === stop.stop_id ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
@@ -299,7 +325,7 @@ export default function RouteDetailScreen() {
                 longitudeDelta: 0.008,
               }}
               zoomEnabled={true}
-              onMapReady={() => setIsMapReady(true)} // Set map as ready
+              onMapReady={() => setIsMapReady(true)}
             >
               <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {stops.map((stop) => (
@@ -378,26 +404,25 @@ export default function RouteDetailScreen() {
         ) : (
           <View style={styles.liveTracker}>
             <Text style={styles.liveTrackerHeader}>Live Bus Locations</Text>
-            <View style={styles.busStatusContainer}>
-              <View style={styles.busStatusItem}>
-                <View style={styles.busIcon}>
-                  <MaterialIcons name="directions-bus" size={24} color="white" />
-                </View>
-                <View style={styles.busInfo}>
-                  <Text style={styles.busNumber}>NH5094</Text>
-                  <Text style={styles.busStatus}>2 mins from Sincere Podium</Text>
-                </View>
+            {loadingShifts ? (
+              <ActivityIndicator size="large" color="#e05d44" />
+            ) : shifts.length > 0 ? (
+              <View style={styles.busStatusContainer}>
+                {shifts.map((shift, index) => (
+                  <View key={index} style={styles.busStatusItem}>
+                    <View style={styles.busIcon}>
+                      <MaterialIcons name="directions-bus" size={24} color="white" />
+                    </View>
+                    <View style={styles.busInfo}>
+                      <Text style={styles.busNumber}>{shift.busNumber}</Text>
+                      <Text style={styles.busStatus}>Next station: {shift.nextStation}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-              <View style={styles.busStatusItem}>
-                <View style={styles.busIcon}>
-                  <MaterialIcons name="directions-bus" size={24} color="white" />
-                </View>
-                <View style={styles.busInfo}>
-                  <Text style={styles.busNumber}>WF4525</Text>
-                  <Text style={styles.busStatus}>8 mins from Kowloon Hospital</Text>
-                </View>
-              </View>
-            </View>
+            ) : (
+              <Text style={styles.noDataText}>No live bus data available</Text>
+            )}
           </View>
         )}
       </ScrollView>

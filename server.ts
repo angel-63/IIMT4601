@@ -8,6 +8,7 @@ import Stop from './models/Stop';
 import User from './models/User';
 import Reservation from './models/Reservation';
 import Notification from './models/Notification';
+import Shift from './models/Shift';
 
 interface ReservationQuery {
   user_id?: string;
@@ -237,6 +238,49 @@ app.get('/stops/bulk', async (req: express.Request, res: express.Response) => {
   }
 });
 */
+
+// GET shifts for a route
+app.get("/shifts/:routeId", async (req: express.Request, res: express.Response) => {
+  try {
+    const { routeId } = req.params;
+    console.log('Fetching shifts for route_id:', routeId);
+
+    // Fetch shifts for the given route_id
+    const shifts = await Shift.find({ route_id: routeId }).lean();
+    if (!shifts || shifts.length === 0) {
+      return res.status(404).json({ message: 'No shifts found for this route' });
+    }
+
+    // For each shift, construct the next stop_id and fetch the stop name
+    const shiftsWithStopNames = await Promise.all(shifts.map(async (shift) => {
+      // Construct stop_id in format ROUTE1-012
+      const stopId = `${shift.route_id.toUpperCase()}-${String(shift.progress).padStart(3, '0')}`;
+      let nextStationName = 'Unknown';
+
+      // Fetch stop details
+      const stop = await Stop.findOne({ stop_id: stopId });
+      if (stop) {
+        nextStationName = stop.name || 'Unknown';
+      } else {
+        console.log(`Stop not found for stop_id: ${stopId}`);
+      }
+
+      return {
+        busNumber: shift.minibus_id,
+        nextStation: nextStationName,
+      };
+    }));
+
+    res.status(200).json({
+      message: 'Shifts retrieved successfully',
+      shifts: shiftsWithStopNames,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error('Error fetching shifts:', message);
+    res.status(500).json({ message });
+  }
+});
 
 // POST new user
 app.post('/api/signup', async (req: express.Request, res: express.Response) => {
