@@ -3,12 +3,15 @@ import { Text, View, StyleSheet, FlatList, Alert, Pressable, TouchableOpacity } 
 import axios from 'axios';
 import { API_BASE } from '@/config-api';
 import { addMinutes, format, isToday } from 'date-fns';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/context/auth';
 
 export default function ReservationHistory() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  const navigation = useNavigation();
+  const { userId } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState(new Set());
@@ -22,11 +25,11 @@ export default function ReservationHistory() {
       const now = new Date();
       now.setUTCHours(now.getUTCHours());
       console.log(`nowUTC.toISOString(): ${now.toISOString()}`)
+      console.log(userId);
 
       const response = await axios.get(`${baseUrl}/reservations`, {
         params: {
-          user_id: params.user_id || 'USER101',
-          reservation_id: params.reservation_id,
+          user_id: userId,
           reservation_status: 'Reserved',
           date_gte: now.toISOString(), // e.g., "2025-04-24T07:00:00.000Z"
         },
@@ -74,25 +77,25 @@ export default function ReservationHistory() {
         ]
       );
 
-      // Filter non-empty groups, sort Today first
-      const filteredGroups = grouped.filter((group) => group.data.length > 0);
-      filteredGroups.sort((a, b) => (a.title === 'Today' ? -1 : 1));
+        // Filter non-empty groups, sort Today first
+        const filteredGroups = grouped.filter((group) => group.data.length > 0);
+        filteredGroups.sort((a, b) => (a.title === 'Today' ? -1 : 1));
 
-      // Sort items within groups (newest first)
-      filteredGroups.forEach((group) => {
-        group.data.sort((a, b) => new Date(b.date) - new Date(a.date));
-      });
+        // Sort items within groups (earliest first)
+        filteredGroups.forEach((group) => {
+        group.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+        });
 
-      // Flatten into [header, item, item, ...]
-      const flatData = filteredGroups.reduce((acc, group) => {
+        // Flatten into [header, item, item, ...]
+        const flatData = filteredGroups.reduce((acc, group) => {
         acc.push({ type: 'header', title: group.title });
         acc.push(...group.data.map((item) => ({ type: 'item', ...item })));
         return acc;
-      }, []);
+        }, []);
 
       setData(flatData);
     } catch (error: unknown) {
-        if (error.status == 404){
+        if (error.response?.status === 404){
             return
         } else{
             console.error('Error fetching reservations:', error);
@@ -109,7 +112,7 @@ export default function ReservationHistory() {
 
   useEffect(() => {
     fetchReservations();
-  }, [params.user_id, params.reservation_id]);
+  }, [navigation]);
 
   const toggleExpand = (id) => {
     setExpandedIds((prev) => {
@@ -141,7 +144,7 @@ export default function ReservationHistory() {
             <Text style={[styles.reservationText, { fontWeight: 'bold',  marginHorizontal: '5%' }]}>→</Text>
             <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>{route.end}</Text>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between'}}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: '3%'}}>
             <Text style={styles.reservationText}>{formattedDate}</Text>
             <Text style={styles.reservationText}>HK${route.fare*item.seat}</Text>
         </View>
@@ -151,13 +154,13 @@ export default function ReservationHistory() {
             name={expandedIds.has(item._id) ? 'chevron-up' : 'chevron-down'}
             size={22}
             color="#aaa"
-            style={{alignSelf:'flex-end'}}
+            style={{alignSelf:'flex-end', paddingBottom: '3%'}}
           />
         </TouchableOpacity>
         {expandedIds.has(item._id) && (
-          <View>
+          <View style={{borderTopColor:'#ccc', borderTopWidth: 1, paddingTop: '5%'}}>
             <Text style={[styles.reservationText, {fontWeight:'bold'}]}>Pick-up:</Text>
-            <Text style={styles.reservationText}>{item.pickup_location}</Text>
+            <Text style={[styles.reservationText, { marginBottom: '3%' }]}>{item.pickup_location}</Text>
             <Text style={[styles.reservationText, {fontWeight:'bold'}]}>Drop-off:</Text>
             <Text style={styles.reservationText}>{item.dropoff_location}</Text>
           </View>

@@ -50,7 +50,7 @@ export default function ConfirmReservation() {
         router.push({
           pathname: '/reservation/paymentSuccess',
           params: {
-            reservation_id: response.data._id, // Adjust based on API response
+            reservation_id: response.data.reservation.reservation_id, // Adjust based on API response
             start: routeData ? `${routeData.start}` : 'Unknown',
             end: routeData ? `${routeData.end}` : 'Unknown',
             date: params.date,

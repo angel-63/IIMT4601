@@ -1,4 +1,3 @@
-// RouteDetail.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
@@ -60,14 +59,11 @@ export default function RouteDetailScreen() {
   const routeId = params.route_id as string;
   const routeName = params.route_name as string;
 
-
   useEffect(() => {
-      navigation.setOptions({
-        headerTitle: routeName || 'Route Details',
-      });
-    }, [navigation, routeName]);
-
-  // console.log('RouteDetail params:', { routeId, routeName });
+    navigation.setOptions({
+      headerTitle: routeName || 'Route Details',
+    });
+  }, [navigation, routeName]);
 
   // Fetch route between stops using OSRM
   const fetchRoute = async () => {
@@ -113,7 +109,6 @@ export default function RouteDetailScreen() {
     const fetchData = async () => {
       setLoading(true);
       try {
-
         const baseUrl = await API_BASE;
 
         // Fetch route details
@@ -193,6 +188,7 @@ export default function RouteDetailScreen() {
       }
     }
   }, [selectedStopId, stops, isMapReady]);
+
   // Show callout when selectedStopId changes
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -204,28 +200,21 @@ export default function RouteDetailScreen() {
   }, [selectedStopId]);
 
   const toggleStopExpansion = (stopId: string) => {
-    // console.log('Toggling stop:', stopId);
     setExpandedStop(expandedStop === stopId ? null : stopId);
     setSelectedStopId(stopId);
   };
 
   // Utility function to calculate minutes to arrival
-  const getMinutesToArrival = (arrivalTime: string): string | null => {
+  const getMinutesToArrival = (arrivalTime: string): string => {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
-      // console.log("Now: ", now);
-      const arrival = new Date(now); // Start with current date
+      const arrival = new Date(now);
       arrival.setHours(hours, minutes, seconds, 0);
-      // console.log("Arrival time: ", arrival);
-
-      if (arrival < now) {
-        return null; // Return null if arrival time has passed
-      }
-
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
-
-      if (diffMinutes <= 0) return 'Arrived';
+      if (diffMinutes <= 0) {
+        return 'N/A';
+      }
       return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''}`;
     } catch (error) {
       console.error('Invalid arrival time format:', arrivalTime, error);
@@ -241,34 +230,64 @@ export default function RouteDetailScreen() {
         onPress={() => toggleStopExpansion(stop.stop_id)}
         activeOpacity={0.8}
       >
+        {/* Stop order circle */}
         <View style={styles.stopNumberContainer}>
           <Text style={styles.stopNumber}>{stop.order}</Text>
         </View>
+        {/* Stop details */}
         <View style={styles.stopDetails}>
           <Text style={styles.stopName}>{stop.name}</Text>
+          {/* Expanded arrival times */}
           {expandedStop === stop.stop_id && (
             <View style={styles.arrivalContainer}>
-            {stop.arrival_times.length > 0 ? (
-              stop.arrival_times
-                .map((arrivalTime, i) => {
-                  const timeDisplay = getMinutesToArrival(arrivalTime);
-                  return timeDisplay ? (
-                    <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
+              {stop.arrival_times.length > 0 ? (
+                (() => {
+                  const timeDisplays = stop.arrival_times.map(arrivalTime => getMinutesToArrival(arrivalTime));
+                  const allNA = timeDisplays.every(display => display === 'N/A');
+                  if (allNA) {
+                    return (
+                      <View style={styles.arrivalItem}>
+                        <View style={styles.busIconContainer}>
+                          <MaterialIcons name="directions-bus" size={18} color="#666" />
+                          <Text style={styles.routeNumber}>{route?.name}</Text>
+                        </View>
+                        <Text style={styles.arrivalTime}>N/A</Text>
+                      </View>
+                    );
+                  }
+                  const validTimes = timeDisplays
+                    .map((timeDisplay, i) => {
+                      if (timeDisplay !== 'N/A') {
+                        return (
+                          <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
+                            <View style={styles.busIconContainer}>
+                              <MaterialIcons name="directions-bus" size={18} color="#666" />
+                              <Text style={styles.routeNumber}>{route?.name}</Text>
+                            </View>
+                            <Text style={styles.arrivalTime}>{timeDisplay}</Text>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })
+                    .filter((item): item is JSX.Element => item !== null);
+                  return validTimes.length > 0 ? validTimes : (
+                    <View style={styles.arrivalItem}>
                       <View style={styles.busIconContainer}>
                         <MaterialIcons name="directions-bus" size={18} color="#666" />
                         <Text style={styles.routeNumber}>{route?.name}</Text>
                       </View>
-                      <Text style={styles.arrivalTime}>{timeDisplay}</Text>
+                      <Text style={styles.arrivalTime}>N/A</Text>
                     </View>
-                  ) : null;
-                })
-                .filter((item) => item !== null) // Filter out null entries
-            ) : (
-              <Text style={styles.arrivalTime}>No arrival times available</Text>
-            )}
-          </View>
-        )}
-      </View>
+                  );
+                })()
+              ) : (
+                <Text style={styles.arrivalTime}>No arrival times available</Text>
+              )}
+            </View>
+          )}
+        </View>
+        {/* Expand/collapse icon */}
         <View style={styles.stopAction}>
           <MaterialIcons
             name={expandedStop === stop.stop_id ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
@@ -508,9 +527,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
+    marginTop: 6,
   },
   arrivalContainer: {
-    marginTop: 5,
+    marginTop: 10,
   },
   arrivalItem: {
     flexDirection: 'row',
@@ -528,7 +548,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   arrivalTime: {
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: 'bold',
     marginRight: 5,
   },

@@ -1,11 +1,12 @@
 import React from 'react'
 import { Text, View, StyleSheet, Pressable } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 // import { Svg, Path } from 'react-native-svg';
 
 export default function ReservationSuccessful() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
   // const reservationDate = new Date().toLocaleDateString('en-US', { // reservationDate = today
   //   year: 'numeric',
@@ -21,9 +22,7 @@ export default function ReservationSuccessful() {
 
 
   const returnHome = () => {
-    router.push({
-      pathname: '../index',
-    });
+    router.push('/(tabs)/reservation');
   };
 
   return (
@@ -48,7 +47,7 @@ export default function ReservationSuccessful() {
             Payment Amount
           </Text>
           <Text style={[styles.colval, {paddingTop: 10}]}>
-            {params.amount}
+            ${params.amount}.00
           </Text>
         </View>
 
