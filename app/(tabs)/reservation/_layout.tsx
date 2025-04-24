@@ -17,10 +17,11 @@ export default function ReservationLayout() {
             backgroundColor: Colors[colorScheme ?? 'light'].background,
           },
           headerTintColor: Colors[colorScheme ?? 'light'].text,
+          headerBackVisible: false
         }}
       />
       <Stack.Screen
-        name="two"
+        name="(tabs)/reservation/two"
         options={{
           title: 'Reservation',
           headerShown: true,
@@ -31,6 +32,7 @@ export default function ReservationLayout() {
         options={{
           title: 'Confirmation',
           headerShown: true,
+          headerBackButtonDisplayMode: 'minimal'
         }}
       />
       <Stack.Screen
@@ -38,10 +40,11 @@ export default function ReservationLayout() {
         options={{
           title: 'Payment Successful',
           headerShown: true,
+          headerBackVisible: false
         }}
       />
       <Stack.Screen
-        name="routeStops"
+        name="(tabs)/reservation/routeStops"
         options={{
           title: 'Select Stop',
           headerShown: true,
