@@ -11,12 +11,12 @@ const TermsAndConditions = () => {
       <ScrollView style={styles.content}>
         <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
         <Text style={styles.paragraph}>
-          By using the Red Minibus app, you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our services.
+          By using the Chiu Luen Minibus app, you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our services.
         </Text>
 
         <Text style={styles.sectionTitle}>2. Service Description</Text>
         <Text style={styles.paragraph}>
-          The Red Minibus app provides information about minibus routes, schedules, and fares operated by Chiu Luen Public Light Bus Co. Ltd. We strive to provide accurate information but do not guarantee its completeness or accuracy.
+          The Chiu Luen Minibus app provides information about minibus routes, schedules, and fares operated by Chiu Luen Public Light Bus Co. Ltd. We strive to provide accurate information but do not guarantee its completeness or accuracy.
         </Text>
 
         <Text style={styles.sectionTitle}>3. User Conduct</Text>
@@ -54,7 +54,7 @@ const TermsAndConditions = () => {
 
         <Text style={styles.sectionTitle}>9. Contact</Text>
         <Text style={styles.paragraph}>
-          For questions about these terms, contact us at support@redminibus.hk.
+          For questions about these terms, contact us at support@chiuluen.hk.
         </Text>
       </ScrollView>
     </SafeAreaView>

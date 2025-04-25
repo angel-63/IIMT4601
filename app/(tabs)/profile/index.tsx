@@ -98,7 +98,7 @@ const ProfileScreen: React.FC = () => {
       </View>
 
       {/* Version Number */}
-      <Text style={styles.version}>v2.004.100000</Text>
+      <Text style={styles.version}>v1.004.100000</Text>
     </SafeAreaView>
   );
 };

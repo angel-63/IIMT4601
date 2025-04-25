@@ -38,8 +38,8 @@ export default function ReservationSuccessful() {
         </Svg> */}
           <FontAwesome style={styles.tickIcon} name="check-circle" size={24} color="#23A26D" />
         <View style={styles.headerContainer}>
-          <Text style={styles.header}>Payment Success!</Text>
-          <Text style={styles.message}>Your payment has been successfully done.</Text>
+          <Text style={styles.header}>Reservation Success!</Text>
+          <Text style={styles.message}>Your reservation has been successfully placed.</Text>
         </View>
 
         <View style={styles.paymentContainer}>
@@ -50,6 +50,8 @@ export default function ReservationSuccessful() {
             ${params.amount}.00
           </Text>
         </View>
+
+        <Text style={styles.message}>Payment would be done 15 minutes before your assigned shift automatically. </Text>
 
         <View style={[{flexDirection:'row'}, {justifyContent:"space-evenly"}]}>
           <View style={styles.itemContainer}>
