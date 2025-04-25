@@ -24,7 +24,7 @@ type Route = {
 
 type RoutePickerProps = {
   onSelect?: (routeId: string) => void;
-  context: 'reservation' | 'routeDetail';
+  selectedRoute?: string; // Add prop to receive selected route ID
 };
 
 const screenWidth = Dimensions.get('screen').width;
@@ -64,6 +64,12 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
           end: item.end,
         }));
         setRoutes(fetchedRoutes);
+
+        // Set initial selected route if provided
+        if (selectedRoute) {
+          const initialRoute = fetchedRoutes.find((r: Route) => r.route_id === selectedRoute);
+          if (initialRoute) setSelectedRouteData(initialRoute);
+        }
       } catch (error) {
         console.error('API Error:', error);
         Alert.alert('Error', 'Failed to load routes. Please try again.', [
@@ -74,7 +80,7 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
       }
     };
     fetchRoutes();
-  }, []);
+  }, [selectedRoute]);
 
   return (
     <View style={styles.container}>

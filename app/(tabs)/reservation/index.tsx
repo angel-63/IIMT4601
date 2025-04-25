@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Text, View, StyleSheet, FlatList, Alert, Pressable, TouchableOpacity } from 'react-native';
 import axios from 'axios';
 import { API_BASE } from '@/config-api';
-import { addMinutes, format, isToday } from 'date-fns';
+import { addMinutes, format, isToday, differenceInMinutes } from 'date-fns';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth';
@@ -24,14 +24,12 @@ export default function ReservationHistory() {
       // Get current time in HKT, convert to UTC
       const now = new Date();
       now.setUTCHours(now.getUTCHours());
-      console.log(`nowUTC.toISOString(): ${now.toISOString()}`)
-      console.log(userId);
 
       const response = await axios.get(`${baseUrl}/reservations`, {
         params: {
           user_id: userId,
           reservation_status: 'Reserved',
-          date_gte: now.toISOString(), // e.g., "2025-04-24T07:00:00.000Z"
+          date_gte: now.toISOString(),
         },
       });
 
@@ -42,7 +40,7 @@ export default function ReservationHistory() {
       const routePromises = uniqueRouteIds.map((routeId) =>
         axios.get(`${baseUrl}/routes/${routeId}`).catch((error) => {
           console.error(`Error fetching route ${routeId}:`, error);
-          return { data: null }; // Handle route not found
+          return { data: null };
         })
       );
       const routeResponses = await Promise.all(routePromises);
@@ -54,7 +52,6 @@ export default function ReservationHistory() {
         return acc;
       }, {});
       setRouteDetails(routeDetailsMap);
-    //   console.log(routeDetails.route_id.start);
 
       // Group reservations by "Today" or "Later"
       const grouped = reservations.reduce(
@@ -62,7 +59,6 @@ export default function ReservationHistory() {
           const dateHKT = new Date(item.date);
           dateHKT.setUTCHours(dateHKT.getUTCHours());
           const dateKey = isToday(dateHKT) ? 'Today' : 'Later';
-          console.log(`dateHKT: ${dateHKT}, dateKey: ${dateKey}`)
           let group = acc.find((g) => g.title === dateKey);
           if (!group) {
             group = { title: dateKey, data: [] };
@@ -77,34 +73,34 @@ export default function ReservationHistory() {
         ]
       );
 
-        // Filter non-empty groups, sort Today first
-        const filteredGroups = grouped.filter((group) => group.data.length > 0);
-        filteredGroups.sort((a, b) => (a.title === 'Today' ? -1 : 1));
+      // Filter non-empty groups, sort Today first
+      const filteredGroups = grouped.filter((group) => group.data.length > 0);
+      filteredGroups.sort((a, b) => (a.title === 'Today' ? -1 : 1));
 
-        // Sort items within groups (earliest first)
-        filteredGroups.forEach((group) => {
+      // Sort items within groups (earliest first)
+      filteredGroups.forEach((group) => {
         group.data.sort((a, b) => new Date(a.date) - new Date(b.date));
-        });
+      });
 
-        // Flatten into [header, item, item, ...]
-        const flatData = filteredGroups.reduce((acc, group) => {
+      // Flatten into [header, item, item, ...]
+      const flatData = filteredGroups.reduce((acc, group) => {
         acc.push({ type: 'header', title: group.title });
         acc.push(...group.data.map((item) => ({ type: 'item', ...item })));
         return acc;
-        }, []);
+      }, []);
 
       setData(flatData);
     } catch (error: unknown) {
-        if (error.response?.status === 404){
-            return
-        } else{
-            console.error('Error fetching reservations:', error);
-            let message = 'Failed to fetch reservations';
-            if (axios.isAxiosError(error) && error.response) {
-              message = error.response.data.message || `Server error: ${error.response.status}`;
-              Alert.alert('Error', message);
-            }
+      if (error.response?.status === 404) {
+        return;
+      } else {
+        console.error('Error fetching reservations:', error);
+        let message = 'Failed to fetch reservations';
+        if (axios.isAxiosError(error) && error.response) {
+          message = error.response.data.message || `Server error: ${error.response.status}`;
+          Alert.alert('Error', message);
         }
+      }
     } finally {
       setLoading(false);
     }
@@ -126,6 +122,49 @@ export default function ReservationHistory() {
     });
   };
 
+  const handleCancel = async (reservationId: string, reservationDate: string) => {
+    const now = new Date();
+    const reservationTime = new Date(reservationDate);
+    const minutesUntilReservation = differenceInMinutes(reservationTime, now);
+
+    if (minutesUntilReservation < 15) {
+      Alert.alert(
+        'Cannot Cancel',
+        'Reservations can only be cancelled at least 15 minutes before the scheduled time.',
+        [{ text: 'OK', style: 'cancel' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Cancellation',
+      'Are you sure you want to cancel your reservation?',
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes',
+          onPress: async () => {
+            try {
+              const baseUrl = await API_BASE;
+              await axios.patch(`${baseUrl}/reservations/${reservationId}`, {
+                reservation_status: 'Cancelled',
+              });
+              Alert.alert('Success', 'Reservation cancelled successfully');
+              fetchReservations(); // Refresh the list
+            } catch (error) {
+              console.error('Error cancelling reservation:', error);
+              Alert.alert('Error', 'Failed to cancel reservation');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const renderReservation = ({ item }) => {
     if (item.type === 'header') {
       return <Text style={styles.sectionHeader}>{item.title}</Text>;
@@ -135,18 +174,19 @@ export default function ReservationHistory() {
     dateHKT.setUTCHours(dateHKT.getUTCHours());
     const endDateHKT = addMinutes(dateHKT, 15);
     const formattedDate = `${format(dateHKT, 'd MMM HH:mm')} - ${format(endDateHKT, 'HH:mm')}`;
-    const route = routeDetails[item.route_id] || { start: 'Unknown', end: 'Unknown', fare:0 };
+    const route = routeDetails[item.route_id] || { start: 'Unknown', end: 'Unknown', fare: 0 };
+    const canCancel = differenceInMinutes(dateHKT, new Date()) >= 15;
 
     return (
       <View style={styles.reservationItem}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>{route.start}</Text>
-            <Text style={[styles.reservationText, { fontWeight: 'bold',  marginHorizontal: '5%' }]}>→</Text>
-            <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>{route.end}</Text>
+          <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>{route.start}</Text>
+          <Text style={[styles.reservationText, { fontWeight: 'bold', marginHorizontal: '5%' }]}>→</Text>
+          <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>{route.end}</Text>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: '3%'}}>
-            <Text style={styles.reservationText}>{formattedDate}</Text>
-            <Text style={styles.reservationText}>HK${route.fare*item.seat}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: '3%' }}>
+          <Text style={styles.reservationText}>{formattedDate}</Text>
+          <Text style={styles.reservationText}>HK${route.fare * item.seat}</Text>
         </View>
         <Text style={styles.reservationText}>{item.seat} Seats</Text>
         <TouchableOpacity onPress={() => toggleExpand(item._id)}>
@@ -154,15 +194,22 @@ export default function ReservationHistory() {
             name={expandedIds.has(item._id) ? 'chevron-up' : 'chevron-down'}
             size={22}
             color="#aaa"
-            style={{alignSelf:'flex-end', paddingBottom: '3%'}}
+            style={{ alignSelf: 'flex-end', paddingBottom: '3%' }}
           />
         </TouchableOpacity>
         {expandedIds.has(item._id) && (
-          <View style={{borderTopColor:'#ccc', borderTopWidth: 1, paddingTop: '5%'}}>
-            <Text style={[styles.reservationText, {fontWeight:'bold'}]}>Pick-up:</Text>
+          <View style={{ borderTopColor: '#ccc', borderTopWidth: 1, paddingTop: '5%' }}>
+            <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>Pick-up:</Text>
             <Text style={[styles.reservationText, { marginBottom: '3%' }]}>{item.pickup_location}</Text>
-            <Text style={[styles.reservationText, {fontWeight:'bold'}]}>Drop-off:</Text>
+            <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>Drop-off:</Text>
             <Text style={styles.reservationText}>{item.dropoff_location}</Text>
+            <Pressable
+              style={[styles.cancelButton, !canCancel && styles.disabledButton]}
+              onPress={() => handleCancel(item._id, item.date)}
+              disabled={!canCancel}
+            >
+              <Text style={styles.reservationButtonText}>Cancel</Text>
+            </Pressable>
           </View>
         )}
       </View>
@@ -173,9 +220,9 @@ export default function ReservationHistory() {
     <View style={styles.container}>
       <Text style={styles.header}>Reservation History</Text>
       {loading ? (
-        <Text style={{paddingVertical: 10}}>Loading...</Text>
+        <Text style={{ paddingVertical: 10 }}>Loading...</Text>
       ) : data.length === 0 ? (
-        <Text style={{paddingVertical: 10}} >No reservations found.</Text>
+        <Text style={{ paddingVertical: 10 }}>No reservations found.</Text>
       ) : (
         <FlatList
           data={data}
@@ -186,10 +233,12 @@ export default function ReservationHistory() {
       )}
       <Pressable
         style={styles.reservationButton}
-        onPress={() => router.push({
+        onPress={() =>
+          router.push({
             pathname: '/reservation/two',
-            params: {resetForm: 'true'}
-        })}
+            params: { resetForm: 'true' },
+          })
+        }
       >
         <Text style={styles.reservationButtonText}>+ New Reservation</Text>
       </Pressable>
@@ -234,12 +283,23 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 20,
   },
+  disabledButton: {
+    backgroundColor: '#cccccc',
+    opacity: 0.5,
+  },
   reservationButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+  },
+  cancelButton:{
+    backgroundColor: '#888',
+    padding: 8,
+    borderRadius: 5,
+    alignSelf: 'flex-end',
+    marginTop: 20,
   },
   listContainer: {
     paddingBottom: 20,

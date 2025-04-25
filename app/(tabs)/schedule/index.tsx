@@ -112,21 +112,26 @@ export default function ScheduleScreen() {
     return nextArrivalTime || 'N/A';
   };
 
-  const getMinutesToArrival = (arrivalTime: string): string | null => {
+  const getMinutesToArrival = (arrivalTime: string): any => {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
-      const arrival = new Date();
+      const arrival = new Date(now);
       arrival.setHours(hours, minutes, seconds, 0);
 
       if (arrival < now) {
-        return null;
+        return 'N/A';
       }
 
-      const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
-      if (isNaN(diffMinutes)) return 'N/A';
-      if (diffMinutes <= 0) return 'Arrived';
-      return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''}`;
+  const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
+    if(isNaN(diffMinutes)) return 'N/A';
+    if (diffMinutes == 0) {
+      return 'Arrived';
+    }
+    return {
+      diffMinutes, 
+      suffix: `min${diffMinutes !== 1 ? 's' : ''}`
+    };
     } catch (error) {
       console.error('Invalid arrival time format:', arrivalTime, error);
       return 'N/A';
@@ -136,7 +141,7 @@ export default function ScheduleScreen() {
   const renderRouteItem = (route: Route, index: string | number) => {
     const isExpanded = expandedRoute === `${route.from} ↔ ${route.to}`;
     const routeKey = `${route.from} ↔ ${route.to}`;
-    const timeDisplay = getMinutesToArrival(route.nextArrival || 'N/A');
+    const {diffMinutes, suffix} = getMinutesToArrival(route.nextArrival || 'N/A');
     const isBookmarked = user?.bookmarked?.includes(route.route_id) || false;
 
     const handleRoutePress = () => {
@@ -187,16 +192,16 @@ export default function ScheduleScreen() {
                 <MaterialIcons name="bookmark-border" size={24} color="#aaa" />
               )}
             </TouchableOpacity>
-            {timeDisplay && timeDisplay !== 'N/A' && timeDisplay !== 'Arrived' ? (
+            {diffMinutes && diffMinutes !== 'N/A' && diffMinutes !== 'Arrived' ? (
               <>
-                <Text style={styles.arrivalTime}>{timeDisplay}</Text>
-                <Text style={styles.arrivalLabel}>mins</Text>
+                <Text style={styles.arrivalTime}>{diffMinutes}</Text>
+                <Text style={styles.arrivalLabel}>{suffix}</Text>
                 <Text style={styles.arrivalNote}>till next arrival</Text>
               </>
             ) : (
               <View>
               <Text style={[styles.arrivalTime, {textAlign:'center'}]}>
-                {timeDisplay === 'Arrived' ? 'Arrived' : 'N/A'}
+                {diffMinutes === 'Arrived' ? 'Arrived' : 'N/A'}
               </Text>
               <Text style={styles.arrivalLabel}></Text>
               <Text style={styles.arrivalNote}></Text>

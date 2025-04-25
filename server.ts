@@ -1,5 +1,5 @@
 import express from 'express';
-import mongoose from 'mongoose';
+import mongoose, { isValidObjectId } from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcrypt'; 
 import axios from 'axios';
@@ -9,6 +9,7 @@ import User from './models/User';
 import Reservation from './models/Reservation';
 import Notification from './models/Notification';
 import Shift from './models/Shift';
+import { differenceInMinutes } from 'date-fns';
 
 interface ReservationQuery {
   user_id?: string;
@@ -268,6 +269,7 @@ app.get("/shifts/:routeId", async (req: express.Request, res: express.Response) 
       return {
         busNumber: shift.minibus_id,
         nextStation: nextStationName,
+        availableSeats: shift.available_seats,
       };
     }));
 
@@ -281,6 +283,30 @@ app.get("/shifts/:routeId", async (req: express.Request, res: express.Response) 
     res.status(500).json({ message });
   }
 });
+
+// GET shift details for a specific shift
+app.get("/shift/:shiftId", async (req: express.Request, res: express.Response) => {
+  try {
+    const { shiftId } = req.params; // Access route parameter
+    console.log('Fetching info for shift:', shiftId);
+
+    if (!shiftId) {
+      return res.status(400).json({ message: 'Shift ID is required' });
+    }
+
+    const shift = await Shift.findOne({ shift_id: shiftId });
+    if (!shift) {
+      return res.status(404).json({ message: 'Shift not found' });
+    }
+
+    console.log('Found shift:', shift.available_seats);
+    res.status(200).json(shift);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message });
+  }
+});
+
 
 // POST new user
 app.post('/api/signup', async (req: express.Request, res: express.Response) => {
@@ -574,6 +600,68 @@ app.get('/reservations', async (req, res) => {
     res.status(500).json({ message });
   }
 });
+
+// PATCH reservation
+app.patch('/reservations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reservation_status } = req.body;
+
+    // Validate reservation ID
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid reservation ID' });
+    }
+
+    // Validate request body
+    if (!reservation_status) {
+      return res.status(400).json({ error: 'reservation_status is required' });
+    }
+    if (reservation_status !== 'Cancelled') {
+      return res.status(400).json({ error: 'Only cancellation is supported' });
+    }
+
+    // Find reservation
+    const reservation = await Reservation.findById(id);
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+
+    // Check if already cancelled
+    if (reservation.reservation_status === 'Cancelled') {
+      return res.status(400).json({ error: 'Reservation is already cancelled' });
+    }
+
+    // Check if cancellation is allowed (at least 15 minutes before)
+    const now = new Date();
+    const reservationTime = new Date(reservation.date);
+    const minutesUntilReservation = differenceInMinutes(reservationTime, now);
+
+    if (minutesUntilReservation < 15) {
+      return res.status(400).json({
+        error: 'Reservations can only be cancelled at least 15 minutes before the scheduled time',
+      });
+    }
+
+    // Update reservation
+    reservation.reservation_status = 'Cancelled';
+    reservation.updated_at = new Date(); // Update timestamp
+    await reservation.save();
+
+    // Log cancellation (optional)
+    console.log(`Reservation ${id} cancelled`);
+
+    // Respond with updated reservation
+    res.status(200).json({
+      message: 'Reservation cancelled successfully',
+      reservation,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error(`Error cancelling reservation ${req.params.id}:`, error);
+    res.status(500).json({ error: message });
+  }
+});
+
 
 // GET notifications for a user
 app.get('/notifications/:userId', async (req, res) => {

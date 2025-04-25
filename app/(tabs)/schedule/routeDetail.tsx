@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ type RouteStop = {
   stop_id: string;
   order: string;
   arrival_times: string[];
+  shift_ids: string[];
 };
 
 type Route = {
@@ -39,11 +41,13 @@ type CombinedStop = {
   longitude: number;
   order: number;
   arrival_times: string[];
+  shift_ids: string[];
 };
 
 type Shift = {
   busNumber: string;
   nextStation: string;
+  availableSeats: number;
 };
 
 export default function RouteDetailScreen() {
@@ -90,6 +94,26 @@ export default function RouteDetailScreen() {
       setLoadingShifts(false);
     }
   };
+
+  // Fetch shifts for real time sesat capacity
+  const fetchShiftbyId = async (shiftId: string) => {
+    try {
+      const baseUrl = await API_BASE;
+      const response = await fetch(`${baseUrl}/shift/${shiftId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch shift details for ${shiftId}`);
+      }
+      const data = await response.json();
+      console.log(data)
+      return {
+        available_seats: data.available_seats,
+        shiftId,
+      }
+    } catch (error) {
+      console.error('Error fetching shift:', error);
+      Alert.alert('Error', 'Failed to load live tracker data');
+    };
+  }
 
   // Fetch route between stops using OSRM
   const fetchRoute = async () => {
@@ -161,11 +185,12 @@ export default function RouteDetailScreen() {
             if (!stopDetail) return null;
             return {
               stop_id: routeStop.stop_id,
-              name: stopDetail.name || 'Unknown Stop',
               latitude: stopDetail.latitude || 0,
               longitude: stopDetail.longitude || 0,
               order: index + 1,
               arrival_times: routeStop.arrival_times || [],
+              shift_ids: routeStop.shift_ids || [],
+              name: stopDetail.name,
             };
           })
           .filter((s): s is CombinedStop => s !== null);
@@ -182,7 +207,10 @@ export default function RouteDetailScreen() {
       }
     };
 
-    if (routeId) fetchData();
+    if (routeId) {
+      fetchData();
+      // fetchShifts();
+    };
   }, [routeId]);
 
   // Fetch route coordinates when stops change
@@ -198,6 +226,23 @@ export default function RouteDetailScreen() {
       fetchShifts();
     }
   }, [activeTab, routeId]);
+
+  /*
+    // Get stop IDs
+  const stopIds = routeData.stops.map((s) => s.stop_id);
+
+  useEffect(() => {
+    const shiftSeats: Shift[] = [];
+    if (activeTab === 'arrivalSchedule' && routeId) {
+      for (const shift_id of shift_ids){
+        const shift = await fetchShifts(shift_id);
+        if (shift_id){
+          shiftSeats.push(shift_id)
+        }
+      }
+    }
+  }, [activeTab, routeId]);
+  */
 
   // Synchronize map region and callout when selectedStopId changes
   useEffect(() => {
@@ -238,7 +283,7 @@ export default function RouteDetailScreen() {
   };
 
   // Utility function to calculate minutes to arrival
-  const getMinutesToArrival = (arrivalTime: string): string | null => {
+  const getMinutesToArrival = (arrivalTime: string): any => {
     try {
       const [hours, minutes, seconds] = arrivalTime.split(':').map(Number);
       const now = new Date();
@@ -246,19 +291,104 @@ export default function RouteDetailScreen() {
       arrival.setHours(hours, minutes, seconds, 0);
 
       if (arrival < now) {
-        return null;
+        return 'N/A';
       }
 
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
-
-      if (diffMinutes <= 0) return 'Arrived';
-      return `${diffMinutes} min${diffMinutes !== 1 ? 's' : ''}`;
+      if(isNaN(diffMinutes)) return 'N/A';
+      if (diffMinutes == 0) {
+        return 'Arrived';
+      }
+      return {
+        diffMinutes, 
+        suffix: `min${diffMinutes !== 1 ? 's' : ''}`
+    };
     } catch (error) {
       console.error('Invalid arrival time format:', arrivalTime, error);
       return 'N/A';
     }
   };
 
+  const ArrivalTimes = ({ stop }: { stop: CombinedStop }) => {
+    const [seatsData, setSeatsData] = useState<Record<string, { available_seats: number }>>({});
+    const [loadingSeats, setLoadingSeats] = useState(true);
+  
+    useEffect(() => {
+      const fetchSeats = async () => {
+        setLoadingSeats(true);
+        const seats = await Promise.all(
+          stop.shift_ids.map(async (shiftId) => {
+            const shiftData = await fetchShiftbyId(shiftId);
+            return { shift_id: shiftId, ...shiftData };
+          })
+        );
+        setSeatsData(
+          seats.reduce((acc, { shift_id, available_seats }) => {
+            if (available_seats !== undefined) {
+              acc[shift_id] = { available_seats };
+            }
+            return acc;
+          }, {} as Record<string, { available_seats: number }>)
+        );
+        setLoadingSeats(false);
+      };
+      if (stop.shift_ids.length > 0) {
+        fetchSeats();
+      } else {
+        setLoadingSeats(false);
+      }
+    }, [stop.shift_ids]);
+  
+    if (loadingSeats) {
+      return <ActivityIndicator size="small" color="#e05d44" />;
+    }
+  
+    if (stop.arrival_times.length === 0) {
+      return (
+        <View style={styles.arrivalItem}>
+          <Text style={{ fontSize: 12 }}>No arrival times</Text>
+        </View>
+      );
+    }
+  
+    const futureArrivals = stop.arrival_times
+      .map((arrivalTime, i) => {
+        const minutesDisplay = getMinutesToArrival(arrivalTime);
+        if (minutesDisplay === 'N/A') return null;
+  
+        const shiftId = stop.shift_ids[i];
+        const shiftData = seatsData[shiftId] ?? { available_seats: 0 };
+  
+        return {
+          key: `${stop.stop_id}-${i}`,
+          minutes: minutesDisplay.diffMinutes,
+          suffix: minutesDisplay.suffix,
+          seats: shiftData.available_seats,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  
+    if (futureArrivals.length === 0) {
+      return (
+        <View style={styles.arrivalItem}>
+          <Text style={{ fontSize: 12 }}>No upcoming arrivals</Text>
+        </View>
+      );
+    }
+  
+    return futureArrivals.map((arrival) => (
+      <View key={arrival.key} style={styles.arrivalItem}>
+        <View style={styles.busIconContainer}>
+          <MaterialIcons name="directions-bus" size={20} 
+          color={(arrival.seats <= 8 && arrival.seats >4) ? '#F5AC38' : arrival.seats <= 4 ? '#FF4141' : '#39C977'} />
+          <Text style={{ fontSize: 12, color: (arrival.seats <= 8 && arrival.seats >4)  ? '#F5AC38' : arrival.seats <= 4 ? '#FF4141' : '#39C977' }}>{arrival.seats}</Text>
+        </View>
+        <Text style={styles.arrivalTime}>{arrival.minutes}</Text>
+        <Text style={{ fontSize: 12, marginHorizontal: 3 }}>{arrival.suffix}</Text>
+      </View>
+    ));
+  };
+  
   const renderStopItem = useCallback(
     (stop: CombinedStop, index: number) => (
       <TouchableOpacity
@@ -274,24 +404,7 @@ export default function RouteDetailScreen() {
           <Text style={styles.stopName}>{stop.name}</Text>
           {expandedStop === stop.stop_id && (
             <View style={styles.arrivalContainer}>
-              {stop.arrival_times.length > 0 ? (
-                stop.arrival_times
-                  .map((arrivalTime, i) => {
-                    const timeDisplay = getMinutesToArrival(arrivalTime);
-                    return timeDisplay ? (
-                      <View key={`${stop.stop_id}-${i}`} style={styles.arrivalItem}>
-                        <View style={styles.busIconContainer}>
-                          <MaterialIcons name="directions-bus" size={18} color="#666" />
-                          <Text style={styles.routeNumber}>{route?.name}</Text>
-                        </View>
-                        <Text style={styles.arrivalTime}>{timeDisplay}</Text>
-                      </View>
-                    ) : null;
-                  })
-                  .filter((item) => item !== null)
-              ) : (
-                <Text style={styles.arrivalTime}>No arrival times available</Text>
-              )}
+              <ArrivalTimes stop={stop} />
             </View>
           )}
         </View>
@@ -304,7 +417,7 @@ export default function RouteDetailScreen() {
         </View>
       </TouchableOpacity>
     ),
-    [expandedStop, route, toggleStopExpansion]
+    [expandedStop, toggleStopExpansion]
   );
 
   return (
@@ -553,7 +666,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   arrivalTime: {
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: 'bold',
     marginRight: 5,
   },
