@@ -16,7 +16,7 @@ import { useAuth } from '../../../context/auth';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
-  '(tabs)/reservation/two': {
+  'two': {
     route_id?: string;
     time?: string;
     seat?: string;
@@ -78,7 +78,7 @@ const TripItem: React.FC<TripItemProps> = ({
   };
 
   const handleBookAgain = () => {
-    navigation.navigate('(tabs)/reservation/two', {
+    navigation.navigate('two', {
       route_id: routeId,
       time,
       seat: seat.toString(),
