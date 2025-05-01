@@ -14,6 +14,7 @@ import { API_BASE } from '@/config-api';
 import { addMinutes, format, isToday, isFuture } from 'date-fns';
 import { useAuth } from '../../../context/auth';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useRouter } from 'expo-router';
 
 type RootStackParamList = {
   'two': {
@@ -65,6 +66,7 @@ const TripItem: React.FC<TripItemProps> = ({
   pickUp,
   dropOff,
 }) => {
+  const router = useRouter();
   const navigation = useNavigation<NavigationProp>();
   const getStatusColor = () => {
     switch (status) {
@@ -78,12 +80,15 @@ const TripItem: React.FC<TripItemProps> = ({
   };
 
   const handleBookAgain = () => {
-    navigation.navigate('two', {
-      route_id: routeId,
-      time,
-      seat: seat.toString(),
-      pickUp,
-      dropOff,
+    router.push({
+      pathname: '/(tabs)/reservation/two',
+      params: {
+        route_id: routeId,
+        time,
+        seat: seat.toString(),
+        pickUp,
+        dropOff,
+      },
     });
   };
 

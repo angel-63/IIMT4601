@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, Image, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
 import { API_BASE } from '../../../config-api';
@@ -37,6 +37,22 @@ export default function ScheduleScreen() {
   const navigation = useNavigation();
   const { user, userId, fetchUserData } = useAuth();
 
+  const fetchStopById = async (stopId: string): Promise<Route | null> => {
+    try {
+      const baseUrl = await API_BASE;
+      const response = await fetch(`${baseUrl}/stops/${stopId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stop ${stopId}`);
+      }
+      const stopData: Route = await response.json();
+      console.log(`stopData: ${JSON.stringify(stopData)}`)
+      return stopData;
+    } catch (error) {
+      console.error(`Error fetching stop ${stopId}:`, error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
@@ -44,22 +60,38 @@ export default function ScheduleScreen() {
         const response = await fetch(`${baseUrl}/routes`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        const fetchedRoutes: Route[] = data.map((item: any) => ({
-          route_id: item.route_id,
-          name: item.route_name,
-          from: item.start,
-          to: item.end,
-          fare: item.fare,
-          nextArrival: findNextArrival(item.stops[0]?.arrival_times || []),
-        }));
-        setRoutes(fetchedRoutes);
-      } catch (error) {
-        console.error('API Error:', error);
-        Alert.alert('Error', 'Failed to load routes');
-      }
-    };
-    fetchRoutes();
-  }, []);
+        const fetchedRoutes: Route[] = await Promise.all(
+          data.map(async (item: any) => {
+          // Extract first and last stop_id from stops array
+          const stops = item.stops || [];
+          const firstStopId = stops[0]?.stop_id;
+          const lastStopId = stops[stops.length - 1]?.stop_id;
+
+          // Fetch stop details for fromLocation and toLocation
+          const firstStop = firstStopId ? await fetchStopById(firstStopId) : null;
+          const lastStop = lastStopId ? await fetchStopById(lastStopId) : null;
+
+          return {
+            route_id: item.route_id,
+            name: item.route_name,
+            from: item.start,
+            fromLocation: firstStop?.name || 'N/A', // Use stop_name or fallback
+            to: item.end,
+            toLocation: lastStop?.name || 'N/A', // Use stop_name or fallback
+            fare: { full: item.fare.toString() }, // Adjust based on your fare structure
+            nextArrival: findNextArrival(stops[0]?.arrival_times || []),
+          };
+        })
+      );
+
+      setRoutes(fetchedRoutes);
+    } catch (error) {
+      console.error('API Error:', error);
+      Alert.alert('Error', 'Failed to load routes');
+    }
+  };
+  fetchRoutes();
+}, []);
 
   const toggleBookmark = async (routeId: string) => {
     if (!userId) {
@@ -125,7 +157,7 @@ export default function ScheduleScreen() {
 
   const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
     if(isNaN(diffMinutes)) return 'N/A';
-    if (diffMinutes == 0) {
+    if (diffMinutes <= 0 && diffMinutes > -1) {
       return 'Arrived';
     }
     return {
@@ -164,20 +196,26 @@ export default function ScheduleScreen() {
         <TouchableOpacity style={styles.routeHeader} onPress={handleRoutePress}>
           <View style={styles.routeInfo}>
             <View style={styles.routeMainInfo}>
-              <Text style={styles.routeName}>{route.from} → {route.to}</Text>
-              <TouchableOpacity
-                style={styles.infoButton}
-                onPress={() => setExpandedRoute(isExpanded ? '' : routeKey)}
-              >
-                <Ionicons name="information-circle-outline" size={22} color="#aaa" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.routeSubInfo}>
+            <View style={styles.locationColumn}>
+              <Text style={styles.routeName}>{route.from}</Text>
               <Text style={styles.routeLocation}>{route.fromLocation || 'N/A'}</Text>
-              <Text style={styles.routeDuration}>{route.duration || 'N/A'} mins</Text>
+            </View>
+            <View>
+              <Text style={styles.routeArrow}>→</Text>
+            </View>
+            <View style={styles.locationColumn}>
+              <Text style={styles.routeName}>{route.to}</Text>
               <Text style={styles.routeLocation}>{route.toLocation || 'N/A'}</Text>
             </View>
+            {/* Info button */}
+            <TouchableOpacity
+              style={styles.infoButton}
+              onPress={() => setExpandedRoute(isExpanded ? '' : routeKey)}
+            >
+              <Ionicons name="information-circle-outline" size={22} color="#aaa" />
+            </TouchableOpacity>
           </View>
+        </View>
           <View style={styles.arrivalInfo}>
             <TouchableOpacity
               style={styles.bookmarkButton}
@@ -251,14 +289,17 @@ export default function ScheduleScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}></View>
-          <Text style={styles.logoText}>LOGO</Text>
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../../assets/images/app-icon-redvan.png')}
+          style={styles.logo}
+          resizeMode="contain"/>
+          <Text style={styles.logoText}>Chiu Luen Minibus​</Text>
         </View>
-        <View style={styles.locationContainer}>
+        {/* <View style={styles.locationContainer}>
           <Ionicons name="location" size={20} color="white" />
           <Text style={styles.locationText}>Tung Choi St., Mong Kok</Text>
-        </View>
+        </View> */}
       </View>
 
       <ScrollView style={styles.scrollView}>
@@ -297,9 +338,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 24,
-    height: 24,
-    backgroundColor: '#ddd',
+    width: 25,
+    height: 25,
+    // backgroundColor: '#ddd',
     marginRight: 8,
   },
   logoText: {
@@ -361,10 +402,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 4,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginRight: 20
   },
   routeLocation: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
+    width: 100,
+    justifyContent: 'flex-start',
   },
   routeDuration: {
     fontSize: 12,
@@ -433,5 +478,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  routeArrow: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginRight: 8
+  },
+  locationColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    flex: 1, // Equal width for both columns,
   },
 });
