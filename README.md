@@ -28,7 +28,6 @@ A mobile application for Chiu Luen Light Bus Operation that allows users to view
 * **Node.js** v16+ and **npm**
 * **Expo CLI**
 * **Xcode** (for iOS Simulator) or **Android Studio** (for Android Emulator)
-* **MongoDB Atlas** or local MongoDB for development
 
 ## Installation
 
