@@ -203,13 +203,14 @@ export default function ReservationHistory() {
             <Text style={[styles.reservationText, { marginBottom: '3%' }]}>{item.pickup_location}</Text>
             <Text style={[styles.reservationText, { fontWeight: 'bold' }]}>Drop-off:</Text>
             <Text style={styles.reservationText}>{item.dropoff_location}</Text>
-            <Pressable
+            <TouchableOpacity
               style={[styles.cancelButton, !canCancel && styles.disabledButton]}
               onPress={() => handleCancel(item._id, item.date)}
               disabled={!canCancel}
+              activeOpacity={0.7}
             >
               <Text style={styles.reservationButtonText}>Cancel</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -231,7 +232,7 @@ export default function ReservationHistory() {
           contentContainerStyle={styles.listContainer}
         />
       )}
-      <Pressable
+      <TouchableOpacity
         style={styles.reservationButton}
         onPress={() =>
           router.push({
@@ -239,9 +240,10 @@ export default function ReservationHistory() {
             params: { resetForm: 'true' },
           })
         }
+        activeOpacity={0.7}
       >
         <Text style={styles.reservationButtonText}>+ New Reservation</Text>
-      </Pressable>
+      </TouchableOpacity>
     </View>
   );
 }

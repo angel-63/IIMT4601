@@ -1,4 +1,4 @@
-import { StyleSheet, Pressable, Alert } from 'react-native';
+import { StyleSheet, Pressable, Alert, TouchableOpacity } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import CalendarPicker from '@/components/CalendarPicker';
 import TimePicker from '@/components/TimePicker';
@@ -183,15 +183,13 @@ export default function TabTwoScreen() {
         />
       </View>
 
-      <View style={[styles.buttonContainer, { flex: 1 }]}>        
-        <Pressable
-          style={({ pressed }) => [styles.payButton, { opacity: pressed ? 0.5 : 1 }]}
+      <View style={styles.buttonContainer}>        
+        <TouchableOpacity
           onPress={confirmReservation}
-        >
-          <Text style={{ color: 'white', textAlign: 'center' }}>
-            Proceed to Payment
-          </Text>
-        </Pressable>
+          style={styles.payButton}
+          activeOpacity={0.5}>
+          <Text style={[{color:'white', textAlign:'center'}]}>Proceed</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -209,6 +207,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   colname: { fontWeight: 'bold', fontSize: 14 },
-  buttonContainer: { paddingHorizontal: 20, paddingVertical: 10 },
-  payButton: { backgroundColor: '#FF4141', justifyContent: 'center', alignSelf: 'flex-end', width: 160, padding: 10, borderRadius: 10 },
+  buttonContainer: { padding: 10 },
+  payButton: { backgroundColor: '#FF4141', justifyContent: 'center', alignSelf: 'flex-end', width: 100, padding: 10, borderRadius: 10 },
 });

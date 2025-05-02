@@ -40,7 +40,8 @@ export default function ReservationLayout() {
         options={{
           title: 'Payment Successful',
           headerShown: true,
-          headerBackVisible: false
+          headerBackVisible: false,
+          headerLeft: () => <></>,
         }}
       />
       <Stack.Screen

@@ -13,16 +13,7 @@ interface Route {
   fromLocation: string;
   to: string;
   toLocation: string;
-  fare?: {
-    full: string;
-    discounted?: string;
-    discountDescription?: string;
-  };
-  serviceTime?: {
-    weekday: string;
-    saturday: string;
-    sunday: string;
-  };
+  fare?: string;
   duration?: string;
   nextArrival?: string;
 }
@@ -78,7 +69,7 @@ export default function ScheduleScreen() {
             fromLocation: firstStop?.name || 'N/A', // Use stop_name or fallback
             to: item.end,
             toLocation: lastStop?.name || 'N/A', // Use stop_name or fallback
-            fare: { full: item.fare.toString() }, // Adjust based on your fare structure
+            fare: item.fare.toString(), // Adjust based on your fare structure
             nextArrival: findNextArrival(stops[0]?.arrival_times || []),
           };
         })
@@ -203,26 +194,26 @@ export default function ScheduleScreen() {
         <TouchableOpacity style={styles.routeHeader} onPress={handleRoutePress}>
           <View style={styles.routeInfo}>
             <View style={styles.routeMainInfo}>
-            <View style={styles.locationColumn}>
-              <Text style={styles.routeName}>{route.from}</Text>
-              <Text style={styles.routeLocation}>{route.fromLocation || 'N/A'}</Text>
+              <View style={styles.locationColumn}>
+                <Text style={styles.routeName}>{route.from}</Text>
+                <Text style={styles.routeLocation}>{route.fromLocation || 'N/A'}</Text>
+              </View>
+              <View>
+                <Text style={styles.routeArrow}>→</Text>
+              </View>
+              <View style={styles.locationColumn}>
+                <Text style={styles.routeName}>{route.to}</Text>
+                <Text style={styles.routeLocation}>{route.toLocation || 'N/A'}</Text>
+              </View>
+              {/* Info button */}
+              <TouchableOpacity
+                style={styles.infoButton}
+                onPress={() => setExpandedRoute(isExpanded ? '' : routeKey)}
+              >
+                <MaterialIcons name="paid" size={22} color="#aaa" />
+              </TouchableOpacity>
             </View>
-            <View>
-              <Text style={styles.routeArrow}>→</Text>
-            </View>
-            <View style={styles.locationColumn}>
-              <Text style={styles.routeName}>{route.to}</Text>
-              <Text style={styles.routeLocation}>{route.toLocation || 'N/A'}</Text>
-            </View>
-            {/* Info button */}
-            <TouchableOpacity
-              style={styles.infoButton}
-              onPress={() => setExpandedRoute(isExpanded ? '' : routeKey)}
-            >
-              <Ionicons name="information-circle-outline" size={22} color="#aaa" />
-            </TouchableOpacity>
           </View>
-        </View>
           <View style={styles.arrivalInfo}>
             <TouchableOpacity
               style={styles.bookmarkButton}
@@ -257,33 +248,10 @@ export default function ScheduleScreen() {
 
         {isExpanded && (
           <View style={styles.expandedInfo}>
-            {route.serviceTime && (
-              <View style={styles.serviceTimeRow}>
-                <View style={styles.serviceTimeCol}>
-                  <Text style={styles.serviceTimeLabel}>Service Time:</Text>
-                  <Text style={styles.serviceTimeValue}>Mon - Fri</Text>
-                  <Text style={styles.serviceTimeValue}>Sat</Text>
-                  <Text style={styles.serviceTimeValue}>Sun & Public Holiday</Text>
-                </View>
-                <View style={styles.serviceTimeCol}>
-                  <Text style={styles.serviceTimeLabel}></Text>
-                  <Text style={styles.serviceTimeValue}>{route.serviceTime.weekday}</Text>
-                  <Text style={styles.serviceTimeValue}>{route.serviceTime.saturday}</Text>
-                  <Text style={styles.serviceTimeValue}>{route.serviceTime.sunday}</Text>
-                </View>
-              </View>
-            )}
             {route.fare && (
-              <View style={styles.fareInfo}>
-                <Text style={styles.fareLabel}>Fare:</Text>
-                <Text style={styles.fareValue}>Full Fare</Text>
+              <View style={[styles.fareInfo, {flexDirection: 'row', alignContent: 'center'}]}>
+                <Text style={styles.fareLabel}>Fare: </Text>
                 <Text style={styles.fareAmount}>{route.fare}</Text>
-                {route.fare.discounted && (
-                  <>
-                    <Text style={styles.fareNote}>{route.fare.discountDescription}</Text>
-                    <Text style={styles.fareAmount}>{route.fare.discounted}</Text>
-                  </>
-                )}
               </View>
             )}
           </View>
@@ -303,10 +271,10 @@ export default function ScheduleScreen() {
           resizeMode="contain"/>
           <Text style={styles.logoText}>Chiu Luen Minibus​</Text>
         </View>
-        {/* <View style={styles.locationContainer}>
+        <View style={styles.locationContainer}>
           <Ionicons name="location" size={20} color="white" />
           <Text style={styles.locationText}>Tung Choi St., Mong Kok</Text>
-        </View> */}
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView}>
@@ -404,6 +372,7 @@ const styles = StyleSheet.create({
   },
   infoButton: {
     marginLeft: 4,
+    marginTop: '-5%',
   },
   routeSubInfo: {
     flexDirection: 'row',
@@ -447,23 +416,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
     padding: 12,
   },
-  serviceTimeRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  serviceTimeCol: {
-    flex: 1,
-  },
-  serviceTimeLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  serviceTimeValue: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  },
   fareInfo: {
     marginTop: 8,
   },
@@ -472,14 +424,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  fareValue: {
-    fontSize: 12,
-    color: '#666',
-  },
   fareAmount: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
     fontWeight: 'bold',
+    marginLeft: '1%'
   },
   fareNote: {
     fontSize: 12,

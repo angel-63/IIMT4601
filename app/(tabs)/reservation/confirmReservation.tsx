@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Text, View, StyleSheet, Pressable, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Text, View, StyleSheet, Pressable, Alert, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { API_BASE } from '@/config-api';
 import axios from 'axios';
 import { useAuth } from '../../../context/auth'; 
@@ -13,6 +13,7 @@ type Route = {
 
 export default function ConfirmReservation() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
   const { userId } = useAuth();
   console.log('Received params:', params);
@@ -32,6 +33,10 @@ export default function ConfirmReservation() {
     };
     fetchRoute();
   }, [params.route_id]);
+
+  useEffect(() => {
+      navigation.pop()
+  }, [navigation]);
 
   const handleConfirm = async () => { 
     try { 
@@ -143,9 +148,11 @@ export default function ConfirmReservation() {
             {params.dropOff}
           </Text>
         </View>
-        <Pressable style={({pressed}) => [styles.confirmButton, {opacity: pressed ? 0.5 : 1}]}>
-                  <Text onPress={handleConfirm}
-                  style={{color:'white', textAlign:'center'}}>Confirm Details</Text></Pressable>
+          <TouchableOpacity
+            onPress={handleConfirm}
+            activeOpacity={0.5}>
+            <Text style={[{color:'white', textAlign:'center'}]}>Confirm Details</Text>
+          </TouchableOpacity>
       </View>
     </View>
   )
