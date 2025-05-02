@@ -169,8 +169,8 @@ export default function ScheduleScreen() {
   };
 
   const renderRouteItem = (route: Route, index: string | number) => {
-    const isExpanded = expandedRoute === `${route.from} ↔ ${route.to}`;
-    const routeKey = `${route.from} ↔ ${route.to}`;
+    const isExpanded = expandedRoute === `${route.from} → ${route.to}`;
+    const routeKey = `${route.from} → ${route.to}`;
     const {diffMinutes, suffix} = getMinutesToArrival(route.nextArrival || 'N/A');
     const isBookmarked = user?.bookmarked?.includes(route.route_id) || false;
 

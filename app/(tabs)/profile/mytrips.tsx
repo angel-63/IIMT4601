@@ -102,7 +102,7 @@ const TripItem: React.FC<TripItemProps> = ({
         <View style={styles.tripMainInfo}>
           <View style={styles.locations}>
             <Text style={styles.locationText}>{from}</Text>
-            <Text style={styles.arrow}>↔</Text>
+            <Text style={styles.arrow}>→</Text>
             <Text style={styles.locationText}>{to}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>

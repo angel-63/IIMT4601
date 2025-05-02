@@ -219,7 +219,6 @@ export default function ReservationHistory() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Reservation History</Text>
       {loading ? (
         <Text style={{ paddingVertical: 10 }}>Loading...</Text>
       ) : data.length === 0 ? (

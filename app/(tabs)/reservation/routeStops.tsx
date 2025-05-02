@@ -70,11 +70,12 @@ export default function RouteStopsScreen() {
     useEffect(() => {
         navigation.setOptions({
         headerTitle: `Select ${label} Stop`,
-        headerLeft: () => (
-            <Pressable onPress={() => navigation.navigate("two",  { selectedStop: 'Stops', label, route_id })} style={{ marginLeft: 15 }}>
-            <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
-            </Pressable>
-        ),
+        // headerLeft: () => (
+        //     <Pressable onPress={() => navigation.navigate("two",  { selectedStop: 'Stops', label, route_id })} style={{ marginLeft: 15 }}>
+        //     <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
+        //     </Pressable>
+        // ),
+        headerBackButtonDisplayMode: 'minimal'
         })
     }, [navigation, label]);
 
@@ -188,7 +189,7 @@ stopNumberContainer: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#e05d44',
+    backgroundColor: '#FF4444',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,

@@ -34,9 +34,6 @@ export default function ConfirmReservation() {
     fetchRoute();
   }, [params.route_id]);
 
-  useEffect(() => {
-      navigation.pop()
-  }, [navigation]);
 
   const handleConfirm = async () => { 
     try { 
@@ -150,6 +147,7 @@ export default function ConfirmReservation() {
         </View>
           <TouchableOpacity
             onPress={handleConfirm}
+            style={styles.confirmButton}
             activeOpacity={0.5}>
             <Text style={[{color:'white', textAlign:'center'}]}>Confirm Details</Text>
           </TouchableOpacity>
