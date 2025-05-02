@@ -4,52 +4,59 @@ import { useRouter } from 'expo-router';
 
 interface LocationPickerProps {
   value: string;
-  onChange: (value: string) => void;
   label: string;
+  routeId?: string;
+  disabled?: boolean;
+  pickUp?: string;
 }
 
-const LocationPicker = ({ value, onChange,}: LocationPickerProps) => {
+const LocationPicker = ({ value, label, routeId, disabled, pickUp }: LocationPickerProps) => {
   const router = useRouter();
 
   const handlePress = () => {
+    if (disabled) return;
     router.push({
-      pathname: '../stops',
-    //   params: { 
-    //     onSelect: (selectedValue: string) => onChange(selectedValue),
-    //     type: label.toLowerCase()
-    //   }
+      pathname: '/reservation/routeStops',
+      params: {
+        label,
+        route_id: routeId,
+        pickUp,
+      },
     });
   };
 
   return (
     <View>
-      <Pressable 
+      <Pressable
         onPress={handlePress}
+        disabled={disabled}
         style={({ pressed }) => [
           styles.locationButton,
-          { opacity: pressed ? 0.5 : 1 }
+          { opacity: pressed && !disabled ? 0.5 : disabled ? 0.5 : 1 },
         ]}
       >
-        <Text style={styles.buttonText}>{value || "Stops"}</Text>
+        <Text style={styles.buttonText}>{value || 'Stops'}</Text>
       </Pressable>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-    locationButton:{
-        backgroundColor: "#FFA5A5",
-        textAlign:'center',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 10,
-        borderRadius: 8
-    },
-    buttonText:{
-        textAlign:'center',
-        justifyContent: 'center',
-        alignContent: 'center',
-    }
-})
+  locationButton: {
+    backgroundColor: '#FFA5A5',
+    textAlign: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 8,
+  },
+  buttonText: {
+    textAlign: 'center',
+    justifyContent: 'center',
+    alignContent: 'center',
+    fontSize: 12,
+    maxWidth: 222,
+  },
+});
 
 export default LocationPicker;

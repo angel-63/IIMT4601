@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Platform } from 'react-native';
 
 import Colors from '@/constants/Colors';
@@ -8,6 +8,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import RoutePicker from '@/components/RoutePicker';
 import { useNavigation } from '@react-navigation/native';
+
+import { useAuth } from '../../context/auth';
+import { setupNotifications } from '../../components/notificationHandler';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -20,76 +23,58 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const navigation = useNavigation();
+  const { isAuthenticated, userId } = useAuth();
+  const router = useRouter();
+
+  // Call hooks before any conditional logic
+  useEffect(() => {
+    if (userId) {
+      setupNotifications(userId);
+    }
+  }, [userId]);
+
+  // Redirect if not authenticated
+  if (!isAuthenticated) {
+    // Use setTimeout to ensure navigation happens after hooks
+    setTimeout(() => {
+      router.push('/(auth)/login');
+    }, 0);
+    return null; // Return null to avoid rendering tabs
+  }
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
-      }}>
+      }}
+    >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      
-      <Tabs.Screen
-        name="reservation/two"
-        options={{
-          // title: 'Reservation',
-          headerTitle: () => <RoutePicker
-            onSelect={(routeId) => navigation.setParams({ selectedRouteId: routeId })}
-            />,
-          tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
-          headerTitleContainerStyle: {
-            left: Platform.OS === 'ios' ? 0 : 16,
-            right: Platform.OS === 'ios' ? 0 : 16,
-          },
-        }}
-      />
-
-      <Tabs.Screen
-        name="reservation/confirmReservation"
-        options={{
-          href: null,
-          title: 'Confirm Reservation',
-        }}
-      />
-
-      <Tabs.Screen
-        name="reservation/paymentSuccess"
-        options={{
-          href: null,
-          title: 'Payment Success',
-        }}
-      />
-
-      <Tabs.Screen
-        name="routeInfo/routeDetail"
+        name="schedule"
         options={{
           title: 'Schedule',
           tabBarIcon: ({ color }) => <TabBarIcon name="bus" color={color} />,
+          headerShown: false,
         }}
       />
 
+      <Tabs.Screen
+        name="reservation"
+        options={{
+          title: 'Reservation',
+          tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
+          headerShown: false,
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }

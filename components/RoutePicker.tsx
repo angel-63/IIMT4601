@@ -1,175 +1,262 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Dimensions, Pressable, Alert } from 'react-native';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
+  Pressable,
+  Alert,
+  Modal,
+  ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { API_BASE } from '@/config-api';
 
 type Route = {
-    id: string;
-    name: string;
+  route_id: string;
+  name: string;
+  start: string;
+  end: string;
 };
 
 type RoutePickerProps = {
-    onSelect?: (routeId: string) => void; // pass only route_id
+  onSelect?: (routeId: string) => void;
+  selectedRoute?: string; // Add prop to receive selected route ID
 };
 
 const screenWidth = Dimensions.get('screen').width;
-// const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001';
-const API_BASE = 'http://192.168.1.78:3001'; // Use backend port
 
-const RoutePicker = ({ onSelect }: RoutePickerProps) => {
-    // const routes: Route[] = [
-    //     { id: '1', name: 'Route A' },
-    //     { id: '2', name: 'Route B' },
-    //     { id: '3', name: 'Route C' },
-    // ];
+const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
+  const router = useRouter();
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [routes, setRoutes] = useState<Route[]>([]);
 
-    const navigation = useNavigation();
-    const [isDropdownVisible, setDropdownVisible] = useState(false);
-    const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const routesRef = useRef<Route[]>([]); // Persistent storage
+  const toggleModal = () => {
+    console.log('Toggling modal, current state:', isModalVisible);
+    setModalVisible(!isModalVisible);
+  };
 
-    const toggleDropdown = () => {
-        setDropdownVisible(!isDropdownVisible);
-      };
-    
-    const handleSelect = (route: Route) => {
-        onSelect?.(route.id);
-        setSelectedRoute(route);
-        setDropdownVisible(false);
-        console.log(`selected new route: ${route.name}, id: ${route.id}`)
+  const handleSelect = (route: Route) => {
+    onSelect?.(route.route_id);
+    setSelectedRoute(route);
+    setModalVisible(false);
+    console.log(`Selected route: ${route.name}, id: ${route.route_id}`);
+  };
+
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        const baseUrl = await API_BASE;
+        console.log('Fetching routes from:', `${baseUrl}/routes`);
+        const response = await fetch(`${baseUrl}/routes`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        console.log('Routes fetched:', data);
+        const fetchedRoutes = data.map((item: any) => ({
+          route_id: item.route_id,
+          name: item.route_name,
+          start: item.start,
+          end: item.end,
+        }));
+        setRoutes(fetchedRoutes);
+
+        // Set initial selected route if provided
+        if (selectedRoute) {
+          const initialRoute = fetchedRoutes.find((r: Route) => r.route_id === selectedRoute);
+          if (initialRoute) setSelectedRouteData(initialRoute);
+        }
+      } catch (error) {
+        console.error('API Error:', error);
+        Alert.alert('Error', 'Failed to load routes. Please try again.', [
+          { text: 'Retry', onPress: () => fetchRoutes() },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
     };
+    fetchRoutes();
+  }, [selectedRoute]);
 
-    useEffect(() => {
-        const fetchRoutes = async () => {
-          try {
-            const response = await fetch(`${API_BASE}/route`);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            const data = await response.json();
-            routesRef.current = data.map((item: any) => ({
-              id: item.route_id,
-              name: item.route_name
-            }));
-          } catch (error) {
-            console.error('API Error:', error);
-            Alert.alert('Error', 'Failed to load routes');
-          } finally {
-            setIsLoading(false);
-          }
-        };
-    
-        fetchRoutes();
-      }, []);
-    return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Pressable onPress={() => navigation.goBack()} style={{marginLeft: 25}}>
-                    <Ionicons 
-                        name="arrow-back-circle-sharp" 
-                        color="#FF4141" 
-                        size={25} 
-                    />
-                </Pressable>     
-                <TouchableOpacity style={styles.button} onPress={toggleDropdown}>
-                    {/* <FontAwesome name="arrows-h" color="#000" size={24} /> */}
-                    <Text style={styles.buttonText}>
-                        {isLoading ? 'Loading routes...' : 
-                        selectedRoute?.name || "Select Route"}
-                    </Text>
-                </TouchableOpacity>     
-            </View>
-            
-            {isDropdownVisible && !isLoading && (
-                <View style={styles.dropdown}>
-                <FlatList>
-                    <TouchableOpacity>
-                            <Text style={styles.optionText}>
-                                Mong Kok 
-                                <FontAwesome name="arrows-h" color="#000" size={24} />
-                                 Kowloon Bay
-                            </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity>
-                            <Text style={styles.optionText}>
-                                Mong Kok 
-                                <FontAwesome name="arrows-h" color="#000" size={24} />
-                                 Kwun Tong
-                            </Text>
-                    </TouchableOpacity>
-                </FlatList>
-                {/* <FlatList
-                    data={routesRef.current}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                    <TouchableOpacity
-                        key={item.id}
-                        style={styles.option}
-                        onPress={() => handleSelect(item)}
-                    >
-                        <Text style={styles.optionText}>{item.name}</Text>
-                    </TouchableOpacity>
-                    )}
-                /> */}
-                </View>
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        {context === 'reservation' && (
+          <Pressable
+            onPress={() => router.push('/(tabs)/reservation')}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={20} />
+          </Pressable>
+        )}
+        <TouchableOpacity style={styles.button} onPress={toggleModal}>
+          <View style={styles.buttonContent}>
+            {selectedRoute ? (
+              <>
+                <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
+                  {selectedRoute.start}
+                </Text>
+                <Text style={[styles.buttonText, { fontWeight: 'bold' }]}>→</Text>
+                <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
+                  {selectedRoute.end}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.buttonText}>Select Route</Text>
             )}
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={isModalVisible && !isLoading}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={toggleModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select a Route</Text>
+            <ScrollView style={styles.routeList}>
+              {routes.map((item) => (
+                <TouchableOpacity
+                  key={item.route_id}
+                  style={styles.option}
+                  onPress={() => handleSelect(item)}
+                >
+                  <View style={styles.optionContent}>
+                    <Text
+                      style={styles.optionText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.start}
+                    </Text>
+                    <Text style={[styles.optionText, { fontWeight: 'bold' }]}>→</Text>
+                    <Text
+                      style={styles.optionText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.end}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.cancelButton} onPress={toggleModal}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-    );
+      </Modal>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        width: screenWidth,
-        position: 'relative',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-    },
-    header:{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    button:{
-        width: screenWidth - 25,
-        alignItems: 'center',
-        backgroundColor: 'white',
-        right: 25,
-        zIndex: -1
-    },
-    buttonText: {
-        textAlign: "center",
-        color: '#333',
-        fontWeight: 'bold',
-    },
-    dropdown: {
-        width: screenWidth + 25,
-        position: 'absolute',
-        top: 20,
-        right: '1%',
-        backgroundColor: "white",
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 3,
-        marginTop: '3%',
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    option: {
-        paddingVertical: 10,
-        width: screenWidth * 1.1,
-        borderTopWidth: 1,
-        borderTopColor: "#ddd",
-        alignItems: 'center',
-        justifyContent: 'center',
-        left: '-2%',
-    },
-    optionText: {
-        fontSize: 14,
-        color: '#333',
-        textAlign: 'center',
-    },
+  container: {
+    width: screenWidth*0.8,
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 3, // Further reduced to minimize space
+    zIndex: 20,
+    padding: 5,
+  },
+  button: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingVertical: 6, // Further reduced padding
+    zIndex: 10,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '80%', // Maximize width
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+    paddingHorizontal: 3, // Further reduced padding
+  },
+  buttonText: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginHorizontal: 1, // Minimal margin
+    fontSize: 12, // Further reduced font size
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: screenWidth * 0.95,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  routeList: {
+    maxHeight: 300,
+  },
+  option: {
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    alignItems: 'center',
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'center',
+    flexWrap: 'nowrap',
+  },
+  optionText: {
+    fontSize: 14,
+    color: '#333',
+    marginHorizontal: 3,
+    flex: 1,
+    textAlign: 'center',
+  },
+  cancelButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: 'bold',
+  },
 });
 
 export default RoutePicker;

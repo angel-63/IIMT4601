@@ -1,29 +1,28 @@
 import React from 'react'
 import { Text, View, StyleSheet, Pressable } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 // import { Svg, Path } from 'react-native-svg';
 
 export default function ReservationSuccessful() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
-  const reservationDate = new Date().toLocaleDateString('en-US', { // reservationDate = today
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  // const reservationDate = new Date().toLocaleDateString('en-US', { // reservationDate = today
+  //   year: 'numeric',
+  //   month: 'short',
+  //   day: 'numeric'
+  // });
 
-  const reservationTime = new Date().toLocaleTimeString('en-US', { // reservationTime = now
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false
-  });
+  // const reservationTime = new Date().toLocaleTimeString('en-US', { // reservationTime = now
+  //   hour: '2-digit', 
+  //   minute: '2-digit',
+  //   hour12: false
+  // });
 
 
   const returnHome = () => {
-    router.push({
-      pathname: '../index',
-    });
+    router.push('/(tabs)/reservation');
   };
 
   return (
@@ -39,8 +38,8 @@ export default function ReservationSuccessful() {
         </Svg> */}
           <FontAwesome style={styles.tickIcon} name="check-circle" size={24} color="#23A26D" />
         <View style={styles.headerContainer}>
-          <Text style={styles.header}>Payment Success!</Text>
-          <Text style={styles.message}>Your payment has been successfully done.</Text>
+          <Text style={styles.header}>Reservation Success!</Text>
+          <Text style={styles.message}>Your reservation has been successfully placed.</Text>
         </View>
 
         <View style={styles.paymentContainer}>
@@ -48,17 +47,19 @@ export default function ReservationSuccessful() {
             Payment Amount
           </Text>
           <Text style={[styles.colval, {paddingTop: 10}]}>
-            amount_placeholder
+            ${params.amount}.00
           </Text>
         </View>
+
+        <Text style={styles.message}>Payment would be done 15 minutes before your assigned shift automatically. </Text>
 
         <View style={[{flexDirection:'row'}, {justifyContent:"space-evenly"}]}>
           <View style={styles.itemContainer}>
             <Text style={styles.colname}>
-              Ref Number
+              Reservation ID
             </Text>
             <Text style={styles.colval}>
-              refno_placeholder
+              {params.reservation_id}
             </Text>
           </View>
         
@@ -67,8 +68,7 @@ export default function ReservationSuccessful() {
               Route
             </Text>
             <Text style={styles.colval}>
-              {/* {params.route} */}
-              route_placeholder
+              {params.start} → {params.end}
             </Text>
           </View>
         </View>
@@ -79,7 +79,7 @@ export default function ReservationSuccessful() {
               Reservation Date
             </Text>
             <Text style={styles.colval}>
-              {reservationDate}
+              {params.date}
             </Text>
           </View>
 
@@ -88,7 +88,7 @@ export default function ReservationSuccessful() {
               Reservation Time
             </Text>
             <Text style={styles.colval}>
-              {reservationTime}
+              {params.time}
             </Text>
           </View>
         </View>

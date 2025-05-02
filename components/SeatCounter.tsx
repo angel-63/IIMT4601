@@ -38,10 +38,11 @@ const SeatCounter = ({value, min=1, max=19, onValueChange}: SeatCounterProps) =>
                     onChangeText={onChangeNumber}
                     // onFocus={() => setIsFocused(true)}
                     // onBlur={handleBlur}
-                    keyboardType='numeric'
+                    // keyboardType='numeric'
                     maxLength={2}
                     selectTextOnFocus
                     returnKeyType='done'
+                    editable={false}
                     />
 
                     <Pressable 
