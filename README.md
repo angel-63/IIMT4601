@@ -91,6 +91,32 @@ npm run server
 └── README.md         # This file
 ```
 
+## Running Real-Time Estimation Computation (Back-end)
+
+1. **Install Required Libraries**:
+
+   ```bash
+   pip install pymongo==4.12.0
+   pip install pytz==2023.3.post1
+   ```
+2. **Check Python Version**: 3.11.5 is recommended.
+
+   ```bash
+   python3 --version
+   ```
+3. **Open 2 Saparate Terminal and Start Scripts**:
+
+   ```bash
+   # On first terminal
+   python3 generation.py
+
+   # On second terminal
+   python3 estimation.py
+   ```
+   **In Case of Unexpected Termination**:
+   Repeat Step 3.
+   Cold start problem exist and may occur occasionally.
+
 ## Troubleshooting
 
 * **Network Error on device**: ensure `API_BASE_DEV` points to your computer’s LAN IP and server listens on `0.0.0.0`. Use `expo start --lan` or `--tunnel`.
