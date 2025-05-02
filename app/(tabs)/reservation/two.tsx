@@ -1,4 +1,4 @@
-import { StyleSheet, Pressable, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, Pressable, Alert } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import CalendarPicker from '@/components/CalendarPicker';
 import TimePicker from '@/components/TimePicker';
@@ -9,7 +9,6 @@ import { useEffect, useState, useRef } from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-// Define param types
 type TwoParams = {
   selectedStop?: string;
   label?: string;
@@ -22,7 +21,7 @@ type TwoParams = {
 
 type ReservationParamList = {
   '(tabs)/reservation/two': TwoParams;
-  '(tabs)/reservation/routeStops': { route_id: string; label: string };
+  '(tabs)/reservation/routeStops': { route_id: string; label: string; pickUp?: string };
   '(tabs)/reservation/confirmReservation': {
     route_id: string;
     date: string;
@@ -93,9 +92,9 @@ export default function TabTwoScreen() {
       headerTitle: () => (
         <RoutePicker
           selectedRoute={form.route_id}
-          onSelect={routeId => {
-            setForm({ route_id: routeId, date: '', time: '', seat: 1, pickUp: 'Stops', dropOff: 'Stops' });
-          }}
+          onSelect={routeId =>
+            setForm({ route_id: routeId, date: '', time: '', seat: 1, pickUp: 'Stops', dropOff: 'Stops' })
+          }
         />
       ),
     });
@@ -127,26 +126,29 @@ export default function TabTwoScreen() {
 
   const confirmReservation = () => {
     if (!validateForm()) return;
-    router.push({ pathname: '/reservation/confirmReservation', params: {
-      route_id: form.route_id,
-      date: form.date,
-      time: form.time,
-      seat: form.seat,
-      pickUp: form.pickUp,
-      dropOff: form.dropOff,
-    }});
+    router.push({
+      pathname: '/reservation/confirmReservation',
+      params: {
+        route_id: form.route_id,
+        date: form.date,
+        time: form.time,
+        seat: form.seat,
+        pickUp: form.pickUp,
+        dropOff: form.dropOff,
+      },
+    });
   };
 
   return (
-    <View style={[styles.container, { flexDirection: 'column' }]}>      
+    <View style={[styles.container, { flexDirection: 'column' }]}>
       <View style={{ flex: 11, borderBottomColor: '#A9A9A9', borderBottomWidth: 1 }}>
         <CalendarPicker
           selectedDate={form.date}
           onDateChange={date => setForm(prev => ({ ...prev, date }))}
         />
       </View>
-      
-      <View style={[styles.row, { flex: 1 }]}>        
+
+      <View style={[styles.row, { flex: 1 }]}>
         <Text style={styles.colname}>Time</Text>
         <TimePicker
           selectedTime={form.time}
@@ -154,8 +156,8 @@ export default function TabTwoScreen() {
           onTimeChange={time => setForm(prev => ({ ...prev, time }))}
         />
       </View>
-      
-      <View style={[styles.row, { flex: 1 }]}>        
+
+      <View style={[styles.row, { flex: 1 }]}>
         <Text style={styles.colname}>Number of Seat</Text>
         <SeatCounter
           value={form.seat}
@@ -163,7 +165,7 @@ export default function TabTwoScreen() {
         />
       </View>
 
-      <View style={[styles.row, { flex: 1 }]}>        
+      <View style={[styles.row, { flex: 1 }]}>
         <Text style={styles.colname}>Pick-up Location</Text>
         <LocationPicker
           value={form.pickUp}
@@ -173,23 +175,24 @@ export default function TabTwoScreen() {
         />
       </View>
 
-      <View style={[styles.row, { flex: 1 }]}>        
+      <View style={[styles.row, { flex: 1 }]}>
         <Text style={styles.colname}>Drop-off Location</Text>
         <LocationPicker
           value={form.dropOff}
           label="Drop-off"
           routeId={form.route_id}
           disabled={!form.route_id}
+          pickUp={form.pickUp}
         />
       </View>
 
-      <View style={styles.buttonContainer}>        
-        <TouchableOpacity
+      <View style={[styles.buttonContainer, { flex: 1 }]}>
+        <Pressable
+          style={({ pressed }) => [styles.payButton, { opacity: pressed ? 0.5 : 1 }]}
           onPress={confirmReservation}
-          style={styles.payButton}
-          activeOpacity={0.5}>
-          <Text style={[{color:'white', textAlign:'center'}]}>Proceed</Text>
-        </TouchableOpacity>
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>Proceed</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -207,6 +210,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   colname: { fontWeight: 'bold', fontSize: 14 },
-  buttonContainer: { padding: 10 },
-  payButton: { backgroundColor: '#FF4141', justifyContent: 'center', alignSelf: 'flex-end', width: 100, padding: 10, borderRadius: 10 },
+  buttonContainer: { paddingHorizontal: 20, paddingVertical: 10 },
+  payButton: {
+    backgroundColor: '#FF4141',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+    width: 120,
+    padding: 10,
+    borderRadius: 10,
+  },
 });

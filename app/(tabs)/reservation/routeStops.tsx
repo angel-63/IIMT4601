@@ -12,30 +12,30 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { API_BASE } from '@/config-api';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-// Define the navigation stack
 type RootStackParamList = {
-  'two': { selectedStop?: string; label?: string; route_id?: string };
-  '(tabs)/reservation/routeStops': { route_id: string; label: string };
+  'two': {
+    selectedStop?: string;
+    label?: string;
+    route_id?: string;
+    pickUp?: string;
+  };
+  '(tabs)/reservation/routeStops': {
+    route_id: string;
+    label: string;
+    pickUp?: string;
+  };
 };
 
-// Define the navigation prop type
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-
-type Route = {
-    route_id: string;
-    name: string;
-    start: string;
-    end: string;
-    stops: { 
-        stop_id: string; 
-        order: string; 
-        arrival_times: string[] 
-    }[];
-  };
+type Params = {
+  route_id: string;
+  label: string;
+  pickUp?: string;
+};
 
 type Stop = {
   stop_id: string;
@@ -45,176 +45,194 @@ type Stop = {
 };
 
 export default function RouteStopsScreen() {
-    const [stops, setStops] = useState<Stop[]>([]);
-    const [loading, setLoading] = useState(true);
-    const navigation = useNavigation<NavigationProp>();
-    const params = useLocalSearchParams();
-    const {route_id, label} = params as {route_id: string; label: string};
-    
+  const [stops, setStops] = useState<Stop[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation<NavigationProp>();
+  const params = useLocalSearchParams<Params>();
+  const { route_id, label, pickUp } = params;
 
-    const fetchStopById = async (stopId: string): Promise<Stop | null> => {
-        try {
+  const handleStopSelect = (stop: Stop) => {
+    navigation.navigate('two', {
+      selectedStop: stop.name,
+      label,
+      route_id,
+      pickUp,
+    });
+  };
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerTitle: `Select ${label} Stop`,
+      headerLeft: () => (
+        <Pressable
+          onPress={() =>
+            navigation.navigate('two', {
+              selectedStop: 'Stops',
+              label,
+              route_id,
+              pickUp,
+            })
+          }
+          style={{ marginLeft: 15 }}
+        >
+          <Ionicons
+            name="arrow-back-circle-sharp"
+            color="#FF4444"
+            size={25}
+          />
+        </Pressable>
+      ),
+    });
+  }, [navigation, label, route_id, pickUp]);
+
+  useEffect(() => {
+    const fetchStops = async () => {
+      setLoading(true);
+      try {
         const baseUrl = await API_BASE;
-        const response = await fetch(`${baseUrl}/stops/${stopId}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch stop ${stopId}`);
+        const routeRes = await fetch(`${baseUrl}/routes/${route_id}`);
+        if (!routeRes.ok) throw new Error('Failed to fetch route');
+        const routeData = await routeRes.json();
+        const stopIds: string[] = routeData.stops.map((s: any) => s.stop_id);
+
+        const stopsData: Stop[] = [];
+        for (const id of stopIds) {
+          const resp = await fetch(`${baseUrl}/stops/${id}`);
+          if (resp.ok) {
+            const stopData: Stop = await resp.json();
+            stopsData.push(stopData);
+          }
         }
-        const stopData: Stop = await response.json();
-        return stopData;
-        } catch (error) {
-        console.error(`Error fetching stop ${stopId}:`, error);
-        return null;
-        }
+
+        setStops(stopsData);
+      } catch (error) {
+        console.error(error);
+        Alert.alert(
+          'Error',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      } finally {
+        setLoading(false);
+      }
     };
-
-    useEffect(() => {
-        navigation.setOptions({
-        headerTitle: `Select ${label} Stop`,
-        // headerLeft: () => (
-        //     <Pressable onPress={() => navigation.navigate("two",  { selectedStop: 'Stops', label, route_id })} style={{ marginLeft: 15 }}>
-        //     <Ionicons name="arrow-back-circle-sharp" color="#FF4141" size={25} />
-        //     </Pressable>
-        // ),
-        headerBackButtonDisplayMode: 'minimal'
-        })
-    }, [navigation, label]);
-
-
-    useEffect(() => {
-        const fetchStops = async () => {
-        setLoading(true);
-        try {
-            const baseUrl = await API_BASE;
-
-            // Fetch route details
-            const routeResponse = await fetch(`${baseUrl}/routes/${route_id}`);
-            if (!routeResponse.ok) throw new Error('Failed to fetch route');
-            const routeData: Route = await routeResponse.json();
-
-            // Get stop IDs
-            const stopIds = routeData.stops.map((s) => s.stop_id);
-
-            // Fetch stop details
-            const stopsData: Stop[] = [];
-            for (const stopId of stopIds) {
-            const stop = await fetchStopById(stopId);
-            if (stop) {
-                stopsData.push(stop);
-            }
-            }
-            
-            setStops(stopsData);
-
-        } catch (error) {
-            console.error('Error fetching stops:', error);
-            Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     fetchStops();
   }, [route_id]);
 
-    // routeStops.tsx
-    const handleStopSelect = (stop: Stop) => {
-        console.log('Navigating with stop:', stop.name);
-        navigation.navigate("two", { selectedStop: stop.name, label, route_id });
-    };
-
-    const renderStopItem = (stop: Stop, index: number) => (
-        <TouchableOpacity
-        key={stop.stop_id}
-        style={styles.stopItem}
-        onPress={() => handleStopSelect(stop)}
-        activeOpacity={0.8}
-        >
-        <View style={styles.stopNumberContainer}>
-            <Text style={styles.stopNumber}>{index + 1}</Text>
-        </View>
-        <View style={styles.stopDetails}>
-            <Text style={styles.stopName}>{stop.name}</Text>
-        </View>
-        </TouchableOpacity>
-    );
-
+  if (loading) {
     return (
-        <SafeAreaView style={styles.container}>
-        {/* <View style={styles.header}>
-            <Text style={styles.headerText}>Select {label} Stop</Text>
-        </View> */}
-        {loading ? (
-            <ActivityIndicator size="large" color="#e05d44" style={styles.loading} />
-        ) : (
-            <ScrollView style={styles.stopList}>
-            {stops.length > 0 ? (
-                stops.map(renderStopItem)
-            ) : (
-                <Text style={styles.noDataText}>No stops available</Text>
-            )}
-            </ScrollView>
-        )}
-        </SafeAreaView>
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator
+          size="large"
+          color="#FF4444"
+          style={styles.loading}
+        />
+      </SafeAreaView>
     );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.stopList}>
+        {stops.length > 0 ? (
+          stops.map((stop, idx) => {
+            const pickUpIndex = pickUp
+              ? stops.findIndex((s) => s.name === pickUp)
+              : -1;
+            const isDisabled =
+              label === 'Drop-off' &&
+              pickUpIndex >= 0 &&
+              idx <= pickUpIndex;
+
+            return (
+              <TouchableOpacity
+                key={stop.stop_id}
+                onPress={() => handleStopSelect(stop)}
+                disabled={isDisabled}
+                style={[
+                  styles.stopItem,
+                  isDisabled && styles.disabledStop,
+                ]}
+              >
+                <View style={styles.stopNumberContainer}>
+                  <Text
+                    style={[
+                      styles.stopNumber,
+                      isDisabled && styles.disabledText,
+                    ]}
+                  >
+                    {idx + 1}
+                  </Text>
+                </View>
+                <View style={styles.stopDetails}>
+                  <Text
+                    style={[
+                      styles.stopName,
+                      isDisabled && styles.disabledText,
+                    ]}
+                  >
+                    {stop.name}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        ) : (
+          <Text style={styles.noDataText}>No stops available</Text>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-container: {
+  container: {
     flex: 1,
-    backgroundColor: '#f6f6f6',
-},
-header: {
-    padding: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-},
-headerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-},
-stopList: {
+  },
+  stopList: {
     flex: 1,
-    backgroundColor: 'white',
-},
-stopItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  stopItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-},
-stopNumberContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    borderColor: '#ccc',
+  },
+  stopNumberContainer: {
+    width:  30,
+    height:  30,
+    borderRadius:  15,
     backgroundColor: '#FF4444',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
-},
-stopNumber: {
+    marginRight: 12,
+  },
+  stopNumber: {
     color: 'white',
     fontWeight: 'bold',
-},
-stopDetails: {
+  },
+  stopDetails: {
     flex: 1,
-},
-stopName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-},
-stopAction: {
-    padding: 5,
-},
-loading: {
-    marginTop: 20,
-},
-noDataText: {
+  },
+  stopName: {
+    fontSize:  16,
+  },
+  noDataText: {
     textAlign: 'center',
-    fontSize: 16,
+    marginTop:  20,
     color: '#666',
-    marginTop: 20,
-},
+  },
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disabledStop: {
+    backgroundColor: '#f0f0f0',
+  },
+  disabledText: {
+    color: '#999',
+  },
 });
