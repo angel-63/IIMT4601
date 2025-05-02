@@ -11,8 +11,10 @@ import {
 import { router } from 'expo-router';
 import axios from 'axios';
 import { useAuth } from '../../../context/auth'; // Adjust path as needed
+import { API_BASE } from '@/config-api';
 
-const BACKEND_URL = 'http://localhost:3001';
+// const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = API_BASE;
 const MINIBUS_ARRIVAL_TIME = new Date('2025-04-23T07:00:00');
 
 export default function CardRegistrationScreen() {

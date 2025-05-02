@@ -18,7 +18,8 @@ interface Route {
   nextArrival?: string;
 }
 
-const BACKEND_URL = 'http://localhost:3001';
+// const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = API_BASE;
 
 export default function ScheduleScreen() {
   const [routes, setRoutes] = useState<Route[]>([]);

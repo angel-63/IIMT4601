@@ -18,8 +18,10 @@ import { useAuth } from '../../../context/auth';
 import axios from 'axios';
 import { handlePhoneInput, validatePhoneNumber, getCountryCode } from '../../../components/phoneNumberHandler';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { API_BASE } from '@/config-api';
 
-const BACKEND_URL = 'http://localhost:3001';
+// const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = API_BASE;
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();

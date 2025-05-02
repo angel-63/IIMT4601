@@ -13,9 +13,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { useAuth } from '../../../context/auth'; // Adjust path as needed
+import { API_BASE } from '@/config-api';
 
 const LOCATION_PERMISSION_KEY = '@location_permission';
-const BACKEND_URL = 'http://localhost:3001';
+// const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = API_BASE;
 
 const SettingsScreen = () => {
   const [darkMode, setDarkMode] = useState(false);

@@ -63,25 +63,6 @@ export default function RouteStopsScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerTitle: `Select ${label} Stop`,
-      headerLeft: () => (
-        <Pressable
-          onPress={() =>
-            navigation.navigate('two', {
-              selectedStop: 'Stops',
-              label,
-              route_id,
-              pickUp,
-            })
-          }
-          style={{ marginLeft: 15 }}
-        >
-          <Ionicons
-            name="arrow-back-circle-sharp"
-            color="#FF4444"
-            size={25}
-          />
-        </Pressable>
-      ),
     });
   }, [navigation, label, route_id, pickUp]);
 

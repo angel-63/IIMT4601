@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import axios from 'axios';
+import { API_BASE } from '@/config-api';
 
 interface ICardInfo {
   number: string;
@@ -43,7 +44,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const BACKEND_URL = 'http://localhost:3001';
+// const BACKEND_URL = 'http://localhost:3001';   // hardcode for dev
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -60,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     console.log('Fetching user data for userId:', userId);
     try {
-      const response = await axios.get(`${BACKEND_URL}/user/${userId}`);
+      const response = await axios.get(`${API_BASE}/user/${userId}`);
       if (response.data.success) {
         setUser(response.data.user);
       } else {
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // first call the API; let 401–499 status codes bubble up to catch()
   let response;
   try {
-    response = await axios.post(`${BACKEND_URL}/api/login`, { email, password });
+    response = await axios.post(`${API_BASE}/api/login`, { email, password });
   } catch (e: unknown) {
     if (axios.isAxiosError(e) && e.response?.data?.message) {
     throw new Error(e.response.data.message);
@@ -141,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string, phone: string) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/signup`, { email, password, name, phone });
+      const response = await axios.post(`${API_BASE}/api/signup`, { email, password, name, phone });
       console.log('Signup response:', response.data);
       if (!response.data.success) {
         throw new Error(response.data.message || 'Signup failed');
