@@ -105,7 +105,7 @@ npm run server
    # 3.11.5 is recommended
    python3 --version
    ```
-3. **Open 2 Saparate Terminals and Start Scripts**:
+3. **Open 2 Saparate Terminals and Start Scripts**: Do not reuse the terminal used for Step 1 and Step 2.
 
    ```bash
    # On first terminal
