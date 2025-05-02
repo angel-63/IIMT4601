@@ -99,12 +99,13 @@ npm run server
    pip install pymongo==4.12.0
    pip install pytz==2023.3.post1
    ```
-2. **Check Python Version**: 3.11.5 is recommended.
+2. **Check Python Version**:
 
    ```bash
+   # 3.11.5 is recommended
    python3 --version
    ```
-3. **Open 2 Saparate Terminal and Start Scripts**:
+3. **Open 2 Saparate Terminals and Start Scripts**:
 
    ```bash
    # On first terminal
