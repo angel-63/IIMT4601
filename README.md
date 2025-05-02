@@ -30,17 +30,6 @@ A mobile application for Chiu Luen Light Bus Operation that allows users to view
 * **Xcode** (for iOS Simulator) or **Android Studio** (for Android Emulator)
 * **MongoDB Atlas** or local MongoDB for development
 
-## Environment Variables
-
-Create a `.env` file in the project root with:
-
-```env
-MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/mydb
-API_BASE_DEV=http://<YOUR_LAN_IP>:3000
-API_BASE_PROD=https://your-production-api.com
-EXPO_PUSH_SERVER_KEY=<your_expo_push_key>
-```
-
 ## Installation
 
 ```bash
