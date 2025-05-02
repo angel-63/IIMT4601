@@ -103,20 +103,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, segments, router, pendingSignUp]);
 
   const signIn = async (email: string, password: string) => {
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/login`, { email, password });
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Login failed');
-      }
-      setUserId(response.data.userId);
-      setIsAuthenticated(true);
-      router.replace('/(tabs)/schedule');
-    } catch (error) {
-      console.error('Login error:', error.response?.data || error.message);
-      console.error('Login error full:', error);
-      throw new Error(error.response?.data?.message || 'Login failed');
+  // first call the API; let 401–499 status codes bubble up to catch()
+  let response;
+  try {
+    response = await axios.post(`${BACKEND_URL}/api/login`, { email, password });
+  } catch (e: unknown) {
+    if (axios.isAxiosError(e) && e.response?.data?.message) {
+    throw new Error(e.response.data.message);
     }
-  };
+    // If it was already a plain Error (from your response.data.success check), just re-throw it
+    if (e instanceof Error) {
+    throw e;
+    }
+    // otherwise fallback
+    throw new Error('Login failed');
+  }
+
+  // now handle application-level failures
+  if (!response.data.success) {
+    // this will have the correct response.data.message
+    throw new Error(response.data.message);
+  }
+
+  // success!
+  setUserId(response.data.userId);
+  setIsAuthenticated(true);
+  router.replace('/(tabs)/schedule');
+};
+
 
   const signOut = () => {
     setIsAuthenticated(false);

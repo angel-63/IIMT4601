@@ -111,6 +111,13 @@ export default function ScheduleScreen() {
     }
   };
 
+  const sortedRoutes = React.useMemo(() => {
+    if (!user?.bookmarked?.length) return routes;
+    const bookmarked = routes.filter(r => user.bookmarked.includes(r.route_id));
+    const others     = routes.filter(r => !user.bookmarked.includes(r.route_id));
+    return [...bookmarked, ...others];
+  }, [routes, user?.bookmarked]);
+
   const findNextArrival = (arrivalTimes: string[]): (string | null) => {
     if (!arrivalTimes || arrivalTimes.length === 0) return 'N/A';
 
@@ -314,7 +321,7 @@ export default function ScheduleScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>All Routes</Text>
         </View>
-        {routes.map((route, index) => renderRouteItem(route, index))}
+        {sortedRoutes.map((route, index) => renderRouteItem(route, index))}
       </ScrollView>
     </SafeAreaView>
   );

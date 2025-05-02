@@ -69,7 +69,12 @@ const ProfileScreen: React.FC = () => {
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar} />
+        <FontAwesome
+          name="user"       // or "user", "user-circle" etc.
+          size={70}
+          color="#ccc"
+          style={styles.avatar}
+        />
         </View>
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{user?.name || 'User name'}</Text>
@@ -127,6 +132,7 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     backgroundColor: '#E0E0E0',
+    textAlign: 'center',
   },
   userInfo: {
     marginLeft: 15,

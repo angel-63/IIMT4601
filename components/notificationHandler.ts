@@ -31,8 +31,9 @@ export async function registerForPushNotificationsAsync(userId: string) {
       return;
     }
 
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Push token:', token);
+    const { data: expoToken } = await Notifications.getExpoPushTokenAsync();
+    token = expoToken;
+    console.log('📱 Expo Push Token for user', userId, ':', expoToken);
 
     // Update user with push token
     try {
