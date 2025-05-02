@@ -1,10 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, Image, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  Image,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { API_BASE } from '../../../config-api';
 import { useAuth } from '../../../context/auth';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 
 interface Route {
   route_id: string;
@@ -55,39 +68,39 @@ export default function ScheduleScreen() {
         const fetchedRoutes: Route[] = await Promise.all(
           data.map(async (item: any) => {
           // Extract first and last stop_id from stops array
-          const stops = item.stops || [];
-          const firstStopId = stops[0]?.stop_id;
-          const lastStopId = stops[stops.length - 1]?.stop_id;
+            const stops = item.stops || [];
+            const firstStopId = stops[0]?.stop_id;
+            const lastStopId = stops[stops.length - 1]?.stop_id;
 
           // Fetch stop details for fromLocation and toLocation
           const firstStop = firstStopId ? await fetchStopById(firstStopId) : null;
           const lastStop = lastStopId ? await fetchStopById(lastStopId) : null;
 
-          return {
-            route_id: item.route_id,
-            name: item.route_name,
-            from: item.start,
-            fromLocation: firstStop?.name || 'N/A', // Use stop_name or fallback
-            to: item.end,
-            toLocation: lastStop?.name || 'N/A', // Use stop_name or fallback
-            fare: item.fare.toString(), // Adjust based on your fare structure
-            nextArrival: findNextArrival(stops[0]?.arrival_times || []),
-          };
-        })
-      );
+            return {
+              route_id: item.route_id,
+              name: item.route_name,
+              from: item.start,
+              fromLocation: firstStop?.name || '-',
+              to: item.end,
+              toLocation: lastStop?.name || '-',
+              fare: item.fare?.toString(),
+              nextArrival: findNextArrival(stops[0]?.arrival_times || []),
+            };
+          })
+        );
 
-      setRoutes(fetchedRoutes);
-    } catch (error) {
-      console.error('API Error:', error);
+        setRoutes(fetchedRoutes);
+      } catch (error) {
+        console.error('API Error:', error);
       Alert.alert('Error', 'Failed to load routes');
-    }
-  };
-  fetchRoutes();
-}, []);
+      }
+    };
+    fetchRoutes();
+  }, []);
 
   const toggleBookmark = async (routeId: string) => {
     if (!userId) {
-      Alert.alert('Error', 'User ID not found. Please log in again.');
+      Alert.alert('Error', 'User ID not found. Please log in again.', [{ text: 'Close' }]);
       return;
     }
 
@@ -97,7 +110,7 @@ export default function ScheduleScreen() {
       await fetchUserData();
     } catch (error) {
       console.error('Error toggling bookmark:', error);
-      Alert.alert('Error', 'Failed to update bookmark.');
+      Alert.alert('Error', 'Failed to update bookmark.', [{ text: 'Close' }]);
     } finally {
       setBookmarkLoading((prev) => ({ ...prev, [routeId]: false }));
     }
@@ -106,12 +119,12 @@ export default function ScheduleScreen() {
   const sortedRoutes = React.useMemo(() => {
     if (!user?.bookmarked?.length) return routes;
     const bookmarked = routes.filter(r => user.bookmarked.includes(r.route_id));
-    const others     = routes.filter(r => !user.bookmarked.includes(r.route_id));
+    const others = routes.filter(r => !user.bookmarked.includes(r.route_id));
     return [...bookmarked, ...others];
   }, [routes, user?.bookmarked]);
 
-  const findNextArrival = (arrivalTimes: string[]): (string | null) => {
-    if (!arrivalTimes || arrivalTimes.length === 0) return 'N/A';
+  const findNextArrival = (arrivalTimes: string[]): string | null => {
+    if (!arrivalTimes || arrivalTimes.length === 0) return '-';
 
     const now = new Date();
     let nextArrivalTime: string | null = null;
@@ -123,14 +136,10 @@ export default function ScheduleScreen() {
         const arrival = new Date();
         arrival.setHours(hours, minutes, seconds || 0, 0);
 
-        if (arrival < now) {
-          return null;
-        }
+        if (arrival < now) return null;
 
         const diffMinutes = (arrival.getTime() - now.getTime()) / 1000 / 60;
-        if (isNaN(diffMinutes)){
-          return 'N/A'
-        }
+        if (isNaN(diffMinutes)) return '-';
         if (diffMinutes >= 0 && diffMinutes < minDiff) {
           minDiff = diffMinutes;
           nextArrivalTime = time;
@@ -140,7 +149,7 @@ export default function ScheduleScreen() {
       }
     }
 
-    return nextArrivalTime || 'N/A';
+    return nextArrivalTime || '-';
   };
 
   const getMinutesToArrival = (arrivalTime: string): any => {
@@ -151,28 +160,28 @@ export default function ScheduleScreen() {
       arrival.setHours(hours, minutes, seconds, 0);
 
       if (arrival < now) {
-        return 'N/A';
+        return '-';
       }
 
-  const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
-    if(isNaN(diffMinutes)) return 'N/A';
-    if (diffMinutes <= 0 && diffMinutes > -1) {
-      return 'Arrived';
-    }
-    return {
-      diffMinutes, 
-      suffix: `min${diffMinutes !== 1 ? 's' : ''}`
-    };
+      const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
+      if (isNaN(diffMinutes)) return '-';
+      if (diffMinutes <= 0 && diffMinutes > -1) {
+        return 'Arrived';
+      }
+      return {
+        diffMinutes,
+        suffix: `min${diffMinutes !== 1 ? 's' : ''}`,
+      };
     } catch (error) {
-      console.error('Invalid arrival time format:', arrivalTime, error);
-      return 'N/A';
+      console.error('Invalid arrival time format:', error);
+      return '-';
     }
   };
 
   const renderRouteItem = (route: Route, index: string | number) => {
     const isExpanded = expandedRoute === `${route.from} → ${route.to}`;
     const routeKey = `${route.from} → ${route.to}`;
-    const {diffMinutes, suffix} = getMinutesToArrival(route.nextArrival || 'N/A');
+    const { diffMinutes, suffix } = getMinutesToArrival(route.nextArrival || '-');
     const isBookmarked = user?.bookmarked?.includes(route.route_id) || false;
 
     const handleRoutePress = () => {
@@ -197,16 +206,15 @@ export default function ScheduleScreen() {
             <View style={styles.routeMainInfo}>
               <View style={styles.locationColumn}>
                 <Text style={styles.routeName}>{route.from}</Text>
-                <Text style={styles.routeLocation}>{route.fromLocation || 'N/A'}</Text>
+                <Text style={styles.routeLocation}>{route.fromLocation || '-'}</Text>
               </View>
               <View>
                 <Text style={styles.routeArrow}>→</Text>
               </View>
               <View style={styles.locationColumn}>
                 <Text style={styles.routeName}>{route.to}</Text>
-                <Text style={styles.routeLocation}>{route.toLocation || 'N/A'}</Text>
+                <Text style={styles.routeLocation}>{route.toLocation || '-'}</Text>
               </View>
-              {/* Info button */}
               <TouchableOpacity
                 style={styles.infoButton}
                 onPress={() => setExpandedRoute(isExpanded ? '' : routeKey)}
@@ -229,7 +237,7 @@ export default function ScheduleScreen() {
                 <MaterialIcons name="bookmark-border" size={24} color="#aaa" />
               )}
             </TouchableOpacity>
-            {diffMinutes && diffMinutes !== 'N/A' && diffMinutes !== 'Arrived' ? (
+            {diffMinutes && diffMinutes !== '-' && diffMinutes !== 'Arrived' ? (
               <>
                 <Text style={styles.arrivalTime}>{diffMinutes}</Text>
                 <Text style={styles.arrivalLabel}>{suffix}</Text>
@@ -237,11 +245,11 @@ export default function ScheduleScreen() {
               </>
             ) : (
               <View>
-              <Text style={[styles.arrivalTime, {textAlign:'center'}]}>
-                {diffMinutes === 'Arrived' ? 'Arrived' : 'N/A'}
-              </Text>
-              <Text style={styles.arrivalLabel}></Text>
-              <Text style={styles.arrivalNote}></Text>
+                <Text style={[styles.arrivalTime, { textAlign: 'center' }]}>
+                  {diffMinutes === 'Arrived' ? 'Arrived' : '-'}
+                </Text>
+                <Text style={styles.arrivalLabel}></Text>
+                <Text style={styles.arrivalNote}></Text>
               </View>
             )}
           </View>
@@ -250,7 +258,7 @@ export default function ScheduleScreen() {
         {isExpanded && (
           <View style={styles.expandedInfo}>
             {route.fare && (
-              <View style={[styles.fareInfo, {flexDirection: 'row', alignContent: 'center'}]}>
+              <View style={[styles.fareInfo, { flexDirection: 'row', alignContent: 'center' }]}>
                 <Text style={styles.fareLabel}>Fare: </Text>
                 <Text style={styles.fareAmount}>{route.fare}</Text>
               </View>
@@ -265,12 +273,13 @@ export default function ScheduleScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('../../../assets/images/app-icon-redvan.png')}
-          style={styles.logo}
-          resizeMode="contain"/>
-          <Text style={styles.logoText}>Chiu Luen Minibus​</Text>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../../../assets/images/app-icon-redvan.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.logoText}>Chiu Luen Minibus</Text>
         </View>
         <View style={styles.locationContainer}>
           <Ionicons name="location" size={20} color="white" />
@@ -279,14 +288,6 @@ export default function ScheduleScreen() {
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {routes.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Journey</Text>
-            </View>
-            {renderRouteItem(routes[0], 'recent')}
-          </>
-        )}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>All Routes</Text>
         </View>
@@ -316,7 +317,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 25,
     height: 25,
-    // backgroundColor: '#ddd',
     marginRight: 8,
   },
   logoText: {
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginRight: 20
+    marginRight: 20,
   },
   routeLocation: {
     fontSize: 11,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   arrivalInfo: {
     alignItems: 'center',
-    width: 100
+    width: 100,
   },
   bookmarkButton: {
     marginBottom: 2,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: 'bold',
-    marginLeft: '1%'
+    marginLeft: '1%',
   },
   fareNote: {
     fontSize: 12,
@@ -440,11 +440,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#333',
-    marginRight: 8
+    marginRight: 8,
   },
   locationColumn: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    flex: 1, // Equal width for both columns,
+    flex: 1,
   },
 });

@@ -291,11 +291,11 @@ export default function RouteDetailScreen() {
       arrival.setHours(hours, minutes, seconds, 0);
 
       if (arrival < now) {
-        return 'N/A';
+        return '-';
       }
 
       const diffMinutes = Math.round((arrival.getTime() - now.getTime()) / 1000 / 60);
-      if(isNaN(diffMinutes)) return 'N/A';
+      if(isNaN(diffMinutes)) return '-';
       if (diffMinutes == 0) {
         return 'Arrived';
       }
@@ -305,7 +305,7 @@ export default function RouteDetailScreen() {
     };
     } catch (error) {
       console.error('Invalid arrival time format:', arrivalTime, error);
-      return 'N/A';
+      return '-';
     }
   };
 
@@ -354,7 +354,7 @@ export default function RouteDetailScreen() {
     const futureArrivals = stop.arrival_times
       .map((arrivalTime, i) => {
         const minutesDisplay = getMinutesToArrival(arrivalTime);
-        if (minutesDisplay === 'N/A') return null;
+        if (minutesDisplay === '-') return null;
   
         const shiftId = stop.shift_ids[i];
         const shiftData = seatsData[shiftId] ?? { available_seats: 0 };
