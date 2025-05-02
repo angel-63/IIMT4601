@@ -60,26 +60,6 @@ npm run server
 4. **Physical Device**: scan the QR code with Expo Go (ensure same network or use `--tunnel`).
 
 
-## Folder Structure
-
-```bash
-├── app               # Expo Router screens & layouts
-│   ├── (tabs)
-│   │   ├── _layout.tsx  # Tab navigator + useLocation hook
-│   │   ├── schedule    # Schedule screens
-│   │   ├── reservation # Reservation & Quick Book screens
-│   │   └── profile     # Profile & Settings screens
-├── hooks
-│   └── useLocation.ts # GPS permission & tracking hook
-├── server            # Express API
-│   ├── models        # Mongoose schemas
-│   ├── routes        # Reservation, user, notification endpoints
-│   └── server.ts     # App entrypoint
-├── utils             # Shared utilities (nearest-stop, date helpers)
-├── config-api.ts     # API_BASE config based on __DEV__
-└── README.md         # This file
-```
-
 ## Running Real-Time Estimation Computation (Back-end)
 
 1. **Install Required Libraries**:
