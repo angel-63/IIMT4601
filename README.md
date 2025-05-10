@@ -30,17 +30,6 @@ A mobile application for Chiu Luen Light Bus Operation that allows users to view
 * **Xcode** (for iOS Simulator) or **Android Studio** (for Android Emulator)
 * **MongoDB Atlas** or local MongoDB for development
 
-## Environment Variables
-
-Create a `.env` file in the project root with:
-
-```env
-MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/mydb
-API_BASE_DEV=http://<YOUR_LAN_IP>:3000
-API_BASE_PROD=https://your-production-api.com
-EXPO_PUSH_SERVER_KEY=<your_expo_push_key>
-```
-
 ## Installation
 
 ```bash
@@ -71,26 +60,6 @@ npm run server
 4. **Physical Device**: scan the QR code with Expo Go (ensure same network or use `--tunnel`).
 
 
-## Folder Structure
-
-```bash
-├── app               # Expo Router screens & layouts
-│   ├── (tabs)
-│   │   ├── _layout.tsx  # Tab navigator + useLocation hook
-│   │   ├── schedule    # Schedule screens
-│   │   ├── reservation # Reservation & Quick Book screens
-│   │   └── profile     # Profile & Settings screens
-├── hooks
-│   └── useLocation.ts # GPS permission & tracking hook
-├── server            # Express API
-│   ├── models        # Mongoose schemas
-│   ├── routes        # Reservation, user, notification endpoints
-│   └── server.ts     # App entrypoint
-├── utils             # Shared utilities (nearest-stop, date helpers)
-├── config-api.ts     # API_BASE config based on __DEV__
-└── README.md         # This file
-```
-
 ## Running Real-Time Estimation Computation (Back-end)
 
 1. **Install Required Libraries**:
@@ -105,7 +74,7 @@ npm run server
    # 3.11.5 is recommended
    python3 --version
    ```
-3. **Open 2 Saparate Terminals and Start Scripts**:
+3. **Open 2 Saparate Terminals and Start Scripts**: Do not reuse the terminal used for Step 1 and Step 2.
 
    ```bash
    # On first terminal

@@ -214,6 +214,21 @@ const SettingsScreen = () => {
     <SafeAreaView style={[styles.container, darkMode ? styles.darkContainer : styles.lightContainer]}>
       <StatusBar />
 
+<<<<<<< HEAD
+=======
+      {/* <View style={styles.section}>
+        <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Appearance</Text>
+        <View style={styles.settingItem}>
+          <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Dark Mode</Text>
+          <Switch
+            value={darkMode}
+            onValueChange={handleDarkModeToggle}
+            trackColor={{ false: '#767577', true: '#FF4444' }}
+          />
+        </View>
+      </View> */}
+
+>>>>>>> 3d1afc24ffca0f420a9deb377b0c4fa293946c83
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Privacy</Text>
         <View style={styles.settingItem}>
@@ -248,14 +263,14 @@ const SettingsScreen = () => {
               />
             </View>
 
-            <View style={styles.settingItem}>
+            {/* <View style={styles.settingItem}>
               <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Allocated Shift Reminder</Text>
               <Switch
                 value={allocatedShiftReminder}
                 onValueChange={handleAllocatedShiftReminderToggle}
                 trackColor={{ false: '#767577', true: '#FF4444' }}
               />
-            </View>
+            </View> */}
 
             <View style={styles.settingItem}>
               <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Reserved Seat Reminder</Text>
