@@ -40,7 +40,7 @@ export default function TabTwoScreen() {
   const params = useLocalSearchParams<TwoParams>();
   const router = useRouter();
   const navigation = useNavigation<NavigationProp>();
-  const { userId, user, fetchUserData } = useAuth(); // Use user from context
+  const { userId, user, fetchUserData } = useAuth();
 
   const [form, setForm] = useState({
     route_id: '',
@@ -72,7 +72,7 @@ export default function TabTwoScreen() {
     return unsubscribe;
   }, [userId, navigation, user, fetchUserData]);
 
-  // Prefill Book-Again fields once
+  // Prefill Book-Again fields
   useEffect(() => {
     if (isFirstMount.current) {
       const { route_id: rId, time: t, seat: s, pickUp: pu, dropOff: doff } = params;
@@ -114,10 +114,15 @@ export default function TabTwoScreen() {
     navigation.setOptions({
       headerTitle: () => (
         <RoutePicker
-          selectedRoute={form.route_id}
-          onSelect={routeId =>
-            setForm({ route_id: routeId, date: '', time: '', seat: 1, pickUp: 'Stops', dropOff: 'Stops' })
+          onSelect={(routeId) =>
+            setForm(prev => ({
+              ...prev,
+              route_id: routeId,
+              pickUp: 'Stops', // Reset pickUp when route changes
+              dropOff: 'Stops', // Reset dropOff when route changes
+            }))
           }
+          selectedRoute={form.route_id}
         />
       ),
     });
@@ -150,7 +155,6 @@ export default function TabTwoScreen() {
   const confirmReservation = () => {
     if (!validateForm()) return;
 
-    // Check if cardInfo exists and is not empty using user from context
     const cardInfo = user?.cardInfo;
     if (!cardInfo || Object.keys(cardInfo).length === 0) {
       Alert.alert(
@@ -173,7 +177,6 @@ export default function TabTwoScreen() {
       return;
     }
 
-    // Proceed to confirmation if cardInfo is filled
     router.push({
       pathname: '/reservation/confirmReservation',
       params: {

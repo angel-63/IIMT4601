@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -24,17 +24,19 @@ type Route = {
 
 type RoutePickerProps = {
   onSelect?: (routeId: string) => void;
-  selectedRoute?: string; // Add prop to receive selected route ID
+  selectedRoute?: string;
+  context?: string;
 };
 
 const screenWidth = Dimensions.get('screen').width;
 
-const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
+const RoutePicker = ({ onSelect, selectedRoute, context }: RoutePickerProps) => {
   const router = useRouter();
   const [isModalVisible, setModalVisible] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [selectedRouteState, setSelectedRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [routes, setRoutes] = useState<Route[]>([]);
+  const prevRouteRef = useRef<Route | null>(null); // Track the previous route
 
   const toggleModal = () => {
     console.log('Toggling modal, current state:', isModalVisible);
@@ -48,6 +50,7 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
     console.log(`Selected route: ${route.name}, id: ${route.route_id}`);
   };
 
+  // Fetch routes on mount
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
@@ -68,7 +71,7 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
         // Set initial selected route if provided
         if (selectedRoute) {
           const initialRoute = fetchedRoutes.find((r: Route) => r.route_id === selectedRoute);
-          if (initialRoute) setSelectedRouteData(initialRoute);
+          if (initialRoute) setSelectedRoute(initialRoute);
         }
       } catch (error) {
         console.error('API Error:', error);
@@ -80,7 +83,24 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
       }
     };
     fetchRoutes();
-  }, [selectedRoute]);
+  }, []);
+
+  // Update selected route when the prop changes
+  useEffect(() => {
+    if (selectedRoute && routes.length > 0) {
+      const matchingRoute = routes.find((r: Route) => r.route_id === selectedRoute);
+      if (matchingRoute && matchingRoute.route_id !== selectedRouteState?.route_id) {
+        prevRouteRef.current = selectedRouteState; // Store the previous route
+        setSelectedRoute(matchingRoute);
+      }
+    }
+  }, [selectedRoute, routes]);
+
+  // Determine the route to display, avoiding "Select Route" during transitions
+  const currentRoute = selectedRoute && routes.length > 0
+    ? routes.find((r: Route) => r.route_id === selectedRoute)
+    : null;
+  const displayRoute = currentRoute || selectedRouteState || prevRouteRef.current;
 
   return (
     <View style={styles.container}>
@@ -95,14 +115,14 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
         )}
         <TouchableOpacity style={styles.button} onPress={toggleModal}>
           <View style={styles.buttonContent}>
-            {selectedRoute ? (
+            {displayRoute ? (
               <>
                 <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
-                  {selectedRoute.start}
+                  {displayRoute.start}
                 </Text>
                 <Text style={[styles.buttonText, { fontWeight: 'bold' }]}>→</Text>
                 <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
-                  {selectedRoute.end}
+                  {displayRoute.end}
                 </Text>
               </>
             ) : (
@@ -160,7 +180,7 @@ const RoutePicker = ({ onSelect, context }: RoutePickerProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: screenWidth*0.8,
+    width: screenWidth * 0.8,
     alignItems: 'center',
   },
   header: {
@@ -171,7 +191,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 3, // Further reduced to minimize space
+    left: 3,
     zIndex: 20,
     padding: 5,
   },
@@ -179,22 +199,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     backgroundColor: 'white',
-    paddingVertical: 6, // Further reduced padding
+    paddingVertical: 6,
     zIndex: 10,
   },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '80%', // Maximize width
+    width: '80%',
     justifyContent: 'center',
     flexWrap: 'nowrap',
-    paddingHorizontal: 3, // Further reduced padding
+    paddingHorizontal: 3,
   },
   buttonText: {
     color: '#333',
     fontWeight: 'bold',
-    marginHorizontal: 1, // Minimal margin
-    fontSize: 12, // Further reduced font size
+    marginHorizontal: 1,
+    fontSize: 12,
     flex: 1,
     textAlign: 'center',
   },
