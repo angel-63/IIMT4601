@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose, { isValidObjectId } from 'mongoose';
 import cors from 'cors';
-import bcrypt from 'bcrypt'; 
+import bcrypt from 'bcrypt';
 import axios from 'axios';
 import Route from './models/Route';
 import Stop from './models/Stop';
@@ -13,9 +13,9 @@ import { differenceInMinutes } from 'date-fns';
 
 interface ReservationQuery {
   user_id?: string;
-  reservation_id?: string;  // optional
-  reservation_status?: string;  // optional
-  date?: { $gte: Date };  // optional
+  reservation_id?: string;
+  reservation_status?: string;
+  date?: { $gte: Date };
 }
 
 // Initialize Express
@@ -24,13 +24,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(express.json());
-app.use(cors({ origin: true
-    // origin: [
-    //   'exp://192.168.1.78:8081', // Your Expo URL
-    //   'http://localhost:19000',   // Expo web
-    //   'http://192.168.1.78:19000' // Local network
-    // ]
-  }));
+app.use(cors({ origin: true }));
 
 // Connect to MongoDB
 const uri = "mongodb+srv://aileen:Enha0420@4601sprint1.9qmij.mongodb.net/user";
@@ -39,7 +33,7 @@ mongoose.connect(uri)
   .then(() => console.log('Connected to MongoDB'))
   .catch((error: Error) => console.error('MongoDB connection error:', error.message));
 
-  // Function to send push notification via Expo
+// Function to send push notification via Expo
 async function sendPushNotification(pushToken: string, message: string) {
   try {
     await axios.post('https://exp.host/--/api/v2/push/send', {
@@ -84,7 +78,7 @@ async function generateNotifications(reservation: any, userId: string) {
       reservation_id: reservation.reservation_id,
       user_id: userId,
       message: "Your reservation has been assigned a shift.",
-      send_time: new Date(), // Send immediately
+      send_time: new Date(),
       type: 'AllocatedShiftReminder',
       status: 'Pending',
     });
@@ -145,8 +139,46 @@ async function startNotificationScheduler() {
   }, 60 * 1000); // Check every minute
 }
 
-// Start the scheduler
+// Function to get current time in Hong Kong (UTC+8)
+function getHongKongTime(): Date {
+  const now = new Date();
+  // Adjust to UTC+8 (Hong Kong time) by adding 8 hours
+  return new Date(now.getTime() + 8 * 60 * 60 * 1000);
+}
+
+// Function to update past reservations
+async function updatePastReservations() {
+  try {
+    const now = getHongKongTime();
+    console.log('Checking past reservations at:', now.toISOString());
+
+    const reservedReservations = await Reservation.find({
+      reservation_status: 'Reserved',
+      date: { $lt: now },
+    }).lean();
+    console.log('Reservations to be updated:', reservedReservations);
+
+    const updateResult = await Reservation.updateMany(
+      {
+        reservation_status: 'Reserved',
+        date: { $lt: now },
+      },
+      { $set: { reservation_status: 'Completed' } }
+    );
+    console.log(`Auto-marked ${updateResult.modifiedCount} past reservations as Completed`);
+  } catch (error) {
+    console.error('Error updating past reservations:', error);
+  }
+}
+
+// Start scheduler for updating past reservations
+function startReservationStatusScheduler() {
+  setInterval(updatePastReservations, 60 * 1000); // Run every minute
+}
+
+// Start schedulers
 startNotificationScheduler();
+startReservationStatusScheduler();
 
 // Start server
 app.listen(PORT, () => {
@@ -202,43 +234,6 @@ app.get("/stops/:stopId", async (req: express.Request, res: express.Response) =>
     res.status(500).json({ message });
   }
 });
-
-/*
-// Bulk stops endpoint
-app.get('/stops/bulk', async (req: express.Request, res: express.Response) => {
-  try {
-    const stopIdsParam = req.query.stopIds;
-    if (!stopIdsParam || typeof stopIdsParam !== 'string') {
-      return res.status(400).json({ message: 'Missing or invalid stopIds parameter' });
-    }
-
-    // Parse JSON array of stop IDs
-    const stopIds = JSON.parse(stopIdsParam);
-    if (!Array.isArray(stopIds)) {
-      return res.status(400).json({ message: 'stopIds must be a JSON array' });
-    }
-
-    // Convert to strings and remove duplicates
-    const uniqueStopIds = [...new Set(stopIds.map(id => String(id)))];
-
-    // Find stops in database
-    const stops = await Stop.find({stop_id: { $in: uniqueStopIds }}, { _id: 0, __v: 0 });
-
-    if (stops.length === 0) {
-      return res.status(404).json({ message: 'No stops found' });
-    }
-
-    res.status(200).json({
-      found: stops.length,
-      results: stops
-    });
-
-  } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error occurred';
-      res.status(500).json({ message });
-  }
-});
-*/
 
 // GET shifts for a route
 app.get("/shifts/:routeId", async (req: express.Request, res: express.Response) => {
@@ -306,7 +301,6 @@ app.get("/shift/:shiftId", async (req: express.Request, res: express.Response) =
     res.status(500).json({ message });
   }
 });
-
 
 // POST new user
 app.post('/api/signup', async (req: express.Request, res: express.Response) => {
@@ -412,7 +406,6 @@ app.put('/user/:userId', async (req: express.Request, res: express.Response) => 
     }
 
     res.json({ success: true, user });
-
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     res.status(500).json({ success: false, message });
@@ -457,17 +450,15 @@ app.post('/user/:userId/bookmark', async (req: express.Request, res: express.Res
 // POST card info update
 app.post('/user/:userId/payment', async (req, res) => {
   const { userId } = req.params;
-  const { cardInfo } = req.body; // Changed from paymentDetails to cardInfo
+  const { cardInfo } = req.body;
 
   try {
-    // Validate input
     if (!cardInfo || typeof cardInfo !== 'object') {
       return res.status(400).json({ success: false, message: 'Invalid card info' });
     }
 
-    // Update or create the user with the new card info
     const updatedUser = await User.findOneAndUpdate(
-      { user_id: userId }, // Changed to user_id to match schema
+      { user_id: userId },
       { $set: { cardInfo } },
       { new: true, upsert: true }
     );
@@ -485,14 +476,12 @@ app.post('/user/:userId/settings', async (req, res) => {
   const { settings } = req.body;
 
   try {
-    // Validate input
     if (!settings || typeof settings !== 'object') {
       return res.status(400).json({ success: false, message: 'Invalid settings' });
     }
 
-    // Update or create the user with the new settings
     const updatedUser = await User.findOneAndUpdate(
-      { user_id: userId }, // Changed to user_id to match schema
+      { user_id: userId },
       { $set: { settings } },
       { new: true, upsert: true }
     );
@@ -505,75 +494,90 @@ app.post('/user/:userId/settings', async (req, res) => {
 });
 
 // POST reservation
-app.post('/reservations', async (req, res) => { 
-  try { 
-    const { route_id, date, time, seat, pickUp, dropOff, user_id,  } = req.body;
+app.post('/reservations', async (req, res) => {
+  try {
+    const { route_id, date, time, seat, pickUp, dropOff, user_id } = req.body;
 
-    if (!route_id || 
-      !date || 
-      !time || 
-      !seat || 
-      !pickUp || 
-      !dropOff ||
-      !user_id) {
+    if (!route_id || !date || !time || !seat || !pickUp || !dropOff || !user_id) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
     const dateTimeString = `${date}T${time}:00+08:00`;
     const dateObj = new Date(dateTimeString);
-    console.log(dateObj);
+    if (isNaN(dateObj.getTime())) {
+      return res.status(400).json({ error: 'Invalid date or time format' });
+    }
+    console.log('Reservation date:', dateObj.toISOString());
 
     const id = Math.floor(10000000 + Math.random() * 90000000);
 
     const reservation = new Reservation({
-      status: "Reserved",
       date: dateObj,
       pickup_location: pickUp,
       dropoff_location: dropOff,
       seat,
       reservation_id: id,
-      reservation_status: "Reserved",
+      reservation_status: 'Reserved',
       user_id,
       trip_id: id,
-      payment_status: "Pending",
-      route_id,      
+      payment_status: 'Pending',
+      route_id,
     });
-    
+
     await reservation.save();
-    
+
     await generateNotifications(reservation, user_id);
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'Reservation created successfully',
-      reservation, 
-      reservation_id: reservation.reservation_id
+      reservation,
+      reservation_id: reservation.reservation_id,
     });
-    
-    } catch (error: unknown) { 
-      const message = error instanceof Error ? error.message : 'Unknown error occurred';
-      res.status(500).json({ message });
-  } 
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message });
+  }
 });
 
 // GET reservation details based on userID or reservation ID
 app.get('/reservations', async (req, res) => {
   try {
-    const { user_id, reservation_status, date_gte } = req.query as { user_id?: string; reservation_status?: string; date_gte?: Date };
+    const { user_id, reservation_status, date_gte } = req.query as {
+      user_id?: string;
+      reservation_status?: string;
+      date_gte?: Date;
+    };
 
-    // Validate query parameters
     if (!user_id) {
       return res.status(400).json({ error: 'user_id is required' });
     }
+
+    // Update past reservations
+    const now = getHongKongTime();
+    console.log('Current time (Hong Kong):', now.toISOString());
+
+    const reservedReservations = await Reservation.find({
+      reservation_status: 'Reserved',
+      date: { $lt: now },
+    }).lean();
+    console.log('Reservations to be updated:', reservedReservations);
+
+    const updateResult = await Reservation.updateMany(
+      {
+        reservation_status: 'Reserved',
+        date: { $lt: now },
+      },
+      { $set: { reservation_status: 'Completed' } }
+    );
+    console.log(`Auto-marked ${updateResult.modifiedCount} past reservations as Completed`);
 
     // Build query
     const query: ReservationQuery = {};
     if (user_id) {
       query.user_id = user_id;
     }
-
     if (reservation_status) {
       query.reservation_status = reservation_status;
     }
-
     if (date_gte) {
       const date = new Date(date_gte);
       if (isNaN(date.getTime())) {
@@ -595,7 +599,7 @@ app.get('/reservations', async (req, res) => {
       reservations,
     });
   } catch (error) {
-    console.error('GET /reservations error:', error); // Improved logging
+    console.error('GET /reservations error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     res.status(500).json({ message });
   }
@@ -607,12 +611,10 @@ app.patch('/reservations/:id', async (req, res) => {
     const { id } = req.params;
     const { reservation_status } = req.body;
 
-    // Validate reservation ID
     if (!isValidObjectId(id)) {
       return res.status(400).json({ error: 'Invalid reservation ID' });
     }
 
-    // Validate request body
     if (!reservation_status) {
       return res.status(400).json({ error: 'reservation_status is required' });
     }
@@ -620,19 +622,16 @@ app.patch('/reservations/:id', async (req, res) => {
       return res.status(400).json({ error: 'Only cancellation is supported' });
     }
 
-    // Find reservation
     const reservation = await Reservation.findById(id);
     if (!reservation) {
       return res.status(404).json({ error: 'Reservation not found' });
     }
 
-    // Check if already cancelled
     if (reservation.reservation_status === 'Cancelled') {
       return res.status(400).json({ error: 'Reservation is already cancelled' });
     }
 
-    // Check if cancellation is allowed (at least 15 minutes before)
-    const now = new Date();
+    const now = getHongKongTime();
     const reservationTime = new Date(reservation.date);
     const minutesUntilReservation = differenceInMinutes(reservationTime, now);
 
@@ -642,15 +641,11 @@ app.patch('/reservations/:id', async (req, res) => {
       });
     }
 
-    // Update reservation
     reservation.reservation_status = 'Cancelled';
-    reservation.updated_at = new Date(); // Update timestamp
+    reservation.updatedAt = new Date();
     await reservation.save();
 
-    // Log cancellation (optional)
     console.log(`Reservation ${id} cancelled`);
-
-    // Respond with updated reservation
     res.status(200).json({
       message: 'Reservation cancelled successfully',
       reservation,
@@ -661,7 +656,6 @@ app.patch('/reservations/:id', async (req, res) => {
     res.status(500).json({ error: message });
   }
 });
-
 
 // GET notifications for a user
 app.get('/notifications/:userId', async (req, res) => {
@@ -699,7 +693,6 @@ app.put('/reservations/:reservationId', async (req, res) => {
       return res.status(404).json({ message: 'Reservation not found' });
     }
 
-    // Generate notifications if shift_id was updated
     if (shift_id) {
       await generateNotifications(reservation, reservation.user_id);
     }
