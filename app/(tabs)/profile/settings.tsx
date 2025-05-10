@@ -215,18 +215,6 @@ const SettingsScreen = () => {
       <StatusBar />
 
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Appearance</Text>
-        <View style={styles.settingItem}>
-          <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Dark Mode</Text>
-          <Switch
-            value={darkMode}
-            onValueChange={handleDarkModeToggle}
-            trackColor={{ false: '#767577', true: '#FF4444' }}
-          />
-        </View>
-      </View>
-
-      <View style={styles.section}>
         <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Privacy</Text>
         <View style={styles.settingItem}>
           <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Allow Location Access</Text>
