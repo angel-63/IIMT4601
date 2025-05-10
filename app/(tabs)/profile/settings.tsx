@@ -214,8 +214,6 @@ const SettingsScreen = () => {
     <SafeAreaView style={[styles.container, darkMode ? styles.darkContainer : styles.lightContainer]}>
       <StatusBar />
 
-<<<<<<< HEAD
-=======
       {/* <View style={styles.section}>
         <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Appearance</Text>
         <View style={styles.settingItem}>
@@ -228,7 +226,6 @@ const SettingsScreen = () => {
         </View>
       </View> */}
 
->>>>>>> 3d1afc24ffca0f420a9deb377b0c4fa293946c83
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Privacy</Text>
         <View style={styles.settingItem}>
