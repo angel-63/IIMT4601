@@ -141,17 +141,10 @@ async function startNotificationScheduler() {
   }, 60 * 1000); // Check every minute
 }
 
-// Function to get current time in Hong Kong (UTC+8)
-function getHongKongTime(): Date {
-  const now = new Date();
-  // Adjust to UTC+8 (Hong Kong time) by adding 8 hours
-  return new Date(now.getTime() + 8 * 60 * 60 * 1000);
-}
-
 // Function to update past reservations
 async function updatePastReservations() {
   try {
-    const now = getHongKongTime();
+    const now = new Date();
     console.log('Checking past reservations at:', now.toISOString());
 
     const reservedReservations = await Reservation.find({
@@ -630,7 +623,7 @@ app.get('/reservations', async (req, res) => {
     }
 
     // Update past reservations
-    const now = getHongKongTime();
+    const now = new Date();
     console.log('Current time (Hong Kong):', now.toISOString());
 
     const reservedReservations = await Reservation.find({
@@ -709,7 +702,7 @@ app.patch('/reservations/:id', async (req, res) => {
       return res.status(400).json({ error: 'Reservation is already cancelled' });
     }
 
-    const now = getHongKongTime();
+    const now = new Date();
     const reservationTime = new Date(reservation.date);
     const minutesUntilReservation = differenceInMinutes(reservationTime, now);
 

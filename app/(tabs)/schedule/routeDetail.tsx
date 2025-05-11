@@ -106,7 +106,8 @@ export default function RouteDetailScreen() {
         throw new Error('Failed to fetch shifts');
       }
       const data = await response.json();
-      setShifts(data.shifts || []);
+      const validShifts = (data.shifts || []).filter((shift: Shift) => shift.nextStation !== 'Unknown');
+      setShifts(validShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
       Alert.alert('Error', 'Failed to load live tracker data');
