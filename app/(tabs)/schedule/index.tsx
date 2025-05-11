@@ -43,6 +43,20 @@ interface Stop {
   shift_ids: string[];
 }
 
+interface Reservation {
+  reservation_id: string;
+  trip_id: string;
+  route_id: string;
+  from: string;
+  to: string;
+  fromLocation: string;
+  toLocation: string;
+  nextArrival: string;
+  fare?: string;
+  date: Date;
+  pickupStopId: string;
+}
+
 const LOCATION_PERMISSION_KEY = '@location_permission';
 
 export default function ScheduleScreen() {
@@ -51,11 +65,11 @@ export default function ScheduleScreen() {
   const [bookmarkLoading, setBookmarkLoading] = useState<{ [key: string]: boolean }>({});
   const [userAddress, setUserAddress] = useState('-');
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  // const [nearestStop, setNearestStop] = useState<{ stop_id: string; name: string; latitude: number; longitude: number } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [recentReservation, setRecentReservation] = useState<Reservation | null>(null);
   const router = useRouter();
   const navigation = useNavigation();
-  const { user, userId, fetchUserData } = useAuth();
+  const { user, userId, fetchUserData, locationAccessEnabled } = useAuth();
 
   const requestLocationPermission = async () => {
     try {
@@ -127,7 +141,6 @@ export default function ScheduleScreen() {
       setUserLocation({ latitude, longitude });
       console.log(`Location fetched: ${latitude}, ${longitude}`);
 
-      // Reverse geocode to get exact address
       const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (geocode.length > 0) {
         const { streetNumber, street, city, region, country } = geocode[0];
@@ -146,7 +159,26 @@ export default function ScheduleScreen() {
     }
   };
 
-  // Calculate nearest bus stop
+  useEffect(() => {
+    if (!locationAccessEnabled) {
+      setUserAddress('-');
+      setUserLocation(null);
+    } else if (locationAccessEnabled && !userLocation) {
+      requestLocationPermission();
+    }
+  }, [locationAccessEnabled]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (locationAccessEnabled) {
+        requestLocationPermission();
+      } else {
+        setUserAddress('-');
+        setUserLocation(null);
+      }
+    }, [locationAccessEnabled])
+  );
+
   const haversineDistance = (
     coords1: { latitude: number; longitude: number },
     coords2: { latitude: number; longitude: number }
@@ -189,27 +221,6 @@ export default function ScheduleScreen() {
     }, { distance: Infinity } as any);
   };
 
-  /*
-  // Update nearest stop (not userAddress) when location or routes change
-  useEffect(() => {
-    if (userLocation && routes.length > 0) {
-      const allStops = routes.flatMap(route => route.stops);
-      const nearest = findNearestStop(userLocation, allStops);
-      setNearestStop(nearest || routes[0]?.stops[0] || { name: '-' });
-      console.log(`Nearest stop updated: ${nearest?.name || '-'}`);
-    } else if (routes.length > 0) {
-      setNearestStop(routes[0]?.stops[0] || { name: '-' });
-    }
-  }, [userLocation]);
-  */
-
-  // Check permission on screen focus
-  useFocusEffect(
-    useCallback(() => {
-      requestLocationPermission();
-    }, [])
-  );
-
   const fetchStopById = async (stopId: string): Promise<{ stop_id: string; name: string; latitude: number; longitude: number } | null> => {
     try {
       const baseUrl = await API_BASE;
@@ -230,55 +241,109 @@ export default function ScheduleScreen() {
     }
   };
 
-  /*
-  useEffect(() => {
-    const fetchRoutes = async () => {
-      try {
-        const baseUrl = await API_BASE;
-        const response = await fetch(`${baseUrl}/routes`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        const fetchedRoutes: Route[] = await Promise.all(
-          data.map(async (item: any) => {
-            const stops = item.stops || [];
-            const firstStopId = stops[0]?.stop_id;
-            const lastStopId = stops[stops.length - 1]?.stop_id;
-
-            const stopDetails = await Promise.all(
-              stops.map(async (stop: any) => {
-                const stopData = await fetchStopById(stop.stop_id);
-                return stopData;
-              })
-            );
-            const validStops = stopDetails.filter((s): s is NonNullable<typeof s> => s !== null);
-
-            const firstStop = validStops.find(s => s.stop_id === firstStopId);
-            const lastStop = validStops.find(s => s.stop_id === lastStopId);
-
-            return {
-              route_id: item.route_id,
-              name: item.route_name,
-              from: item.start,
-              fromLocation: firstStop?.name || '-',
-              to: item.end,
-              toLocation: lastStop?.name || '-',
-              fare: item.fare?.toString(),
-              // need to update to stop_id of nearestStop
-              nextArrival: findNextArrival(stops[0]?.arrival_times || []),
-              stops: validStops,
-            };
-          })
-        );
-
-        setRoutes(fetchedRoutes);
-      } catch (error) {
-        console.error('API Error:', error);
-        Alert.alert('Error', 'Failed to load routes', [{ text: 'Close' }]);
+  const fetchReservations = async () => {
+    if (!userId) {
+      setRecentReservation(null);
+      return;
+    }
+    try {
+      const baseUrl = await API_BASE;
+      const response = await axios.get(`${baseUrl}/reservations`, {
+        params: {
+          user_id: userId,
+          reservation_status: 'Reserved',
+        },
+      });
+      if (response.data.message !== 'Reservations retrieved successfully') {
+        setRecentReservation(null);
+        return;
       }
-    };
-    fetchRoutes();
-  }, []);
-  */
+
+      const reservations = response.data.reservations;
+      const now = new Date();
+      const futureReservations = reservations.filter((res: any) => new Date(res.date) > now);
+
+      if (futureReservations.length === 0) {
+        setRecentReservation(null);
+        return;
+      }
+
+      // Fetch route details for each reservation
+      const reservationsWithDetails = await Promise.all(
+        futureReservations.map(async (res: any) => {
+          const routeResponse = await fetch(`${baseUrl}/routes/${res.route_id}`);
+          if (!routeResponse.ok) {
+            return null;
+          }
+          const routeData = await routeResponse.json();
+          const stops = routeData.stops || [];
+          console.log(`Reservation ${res.reservation_id} - Stops:`, JSON.stringify(stops, null, 2));
+
+          // Use the route's start and end stops for fromLocation and toLocation
+          const fromLocation = stops[0]?.name || '-';
+          const toLocation = stops[stops.length - 1]?.name || '-';
+
+          // Find pickup stop for nextArrival calculation
+          const pickupStop = stops.find((stop: Stop) => stop.stop_id === res.pickup_location);
+
+          // Calculate nearest stop for the route
+          const nearestStopData = userLocation ? findNearestStop(userLocation, stops) : pickupStop || stops[0] || null;
+
+          return {
+            reservation_id: res.reservation_id,
+            trip_id: res.trip_id,
+            route_id: res.route_id,
+            from: routeData.start,
+            to: routeData.end,
+            fromLocation: fromLocation,
+            toLocation: toLocation,
+            nextArrival: findNextArrival(pickupStop?.arrival_times || []),
+            fare: routeData.fare?.toString(),
+            date: new Date(res.date),
+            pickupStopId: res.pickup_location,
+            stops: stops,
+            nearestStop: nearestStopData,
+          };
+        })
+      );
+
+      const validReservations = reservationsWithDetails.filter((res: any) => res !== null);
+      if (validReservations.length === 0) {
+        setRecentReservation(null);
+        return;
+      }
+
+      // Sort by date to find the nearest reservation
+      const nearestReservation = validReservations.reduce((nearest: any, current: any) => {
+        return current.date < nearest.date ? current : nearest;
+      });
+
+      // Transform reservation into Route format for renderRouteItem
+      const routeForRecent: Route = {
+        route_id: nearestReservation.route_id,
+        name: `${nearestReservation.from} → ${nearestReservation.to}`, // Mimic route_name
+        from: nearestReservation.from,
+        fromLocation: nearestReservation.fromLocation,
+        to: nearestReservation.to,
+        toLocation: nearestReservation.toLocation,
+        fare: nearestReservation.fare,
+        nextArrival: nearestReservation.nextArrival,
+        stops: nearestReservation.stops, // Include full stops array
+        nearestStop: nearestReservation.nearestStop, // Include nearest stop
+      };
+      setRecentReservation(nearestReservation);
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+      setRecentReservation(null);
+    }
+  };
+
+  // Fetch reservations when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchReservations();
+    }, [userId, userLocation])
+  );
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -287,11 +352,11 @@ export default function ScheduleScreen() {
         const response = await fetch(`${baseUrl}/routes`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        console.log(`Route full data:`, JSON.stringify(data)); // Debug stops
+        console.log(`Route full data:`, JSON.stringify(data));
         const fetchedRoutes = data.map((item) => {
           const stops = item.stops || [];
           const nearestStopData = userLocation ? findNearestStop(userLocation, stops) : stops[0] || null;
-          console.log(`Route ${item.route_id} stops:`, JSON.stringify(stops, null, 2)); // Debug stops
+          console.log(`Route ${item.route_id} stops:`, JSON.stringify(stops, null, 2));
           console.log(`Nearest stop for route ${item.route_id}: ${nearestStopData?.name || '-'}`);
           return {
             route_id: item.route_id,
@@ -308,7 +373,6 @@ export default function ScheduleScreen() {
         });
         setRoutes(fetchedRoutes);
   
-        // Cache routes locally
         await AsyncStorage.setItem('routes', JSON.stringify(fetchedRoutes));
       } catch (error) {
         console.error('API Error:', error);
@@ -316,7 +380,6 @@ export default function ScheduleScreen() {
       }
     };
   
-    // Check cache first
     const loadCachedRoutes = async () => {
       const cachedRoutes = await AsyncStorage.getItem('routes');
       if (cachedRoutes) {
@@ -413,7 +476,6 @@ export default function ScheduleScreen() {
     const routeKey = `${route.from} → ${route.to}`;
     const { diffMinutes, suffix } = getMinutesToArrival(route.nextArrival || '-');
     const isBookmarked = user?.bookmarked?.includes(route.route_id) || false;
-    // Use userLocation if available; otherwise, use first stop's coordinates
     const latitude = userLocation?.latitude ?? route.stops[0]?.latitude ?? 0;
     const longitude = userLocation?.longitude ?? route.stops[0]?.longitude ?? 0;
     const nearestStop = route.nearestStop || route.stops[0] || { stop_id: '', name: '-', latitude: 0, longitude: 0 };
@@ -434,8 +496,6 @@ export default function ScheduleScreen() {
       console.log(`Navigating to routeDetail with params:`, {
         route_id: route.route_id,
         route_name: `${route.from} ↔ ${route.to}`,
-        // latitude: latitude.toString(),
-        // longitude: longitude.toString(),
         stop_id: nearestStop.stop_id || '',
         stop_name: nearestStop.name || '',
       });
@@ -517,6 +577,32 @@ export default function ScheduleScreen() {
     );
   };
 
+  const renderRecentJourney = () => {
+    if (!recentReservation) {
+      return (
+        <View style={styles.recentJourneyCard}>
+          <Text style={styles.recentJourneyText}>No upcoming reservations</Text>
+        </View>
+      );
+    }
+
+    // Transform recentReservation into a Route object for renderRouteItem
+    const routeForRecent: Route = {
+      route_id: recentReservation.route_id,
+      name: `${recentReservation.from} → ${recentReservation.to}`,
+      from: recentReservation.from,
+      fromLocation: recentReservation.fromLocation,
+      to: recentReservation.to,
+      toLocation: recentReservation.toLocation,
+      fare: recentReservation.fare,
+      nextArrival: recentReservation.nextArrival,
+      stops: recentReservation.stops,
+      nearestStop: recentReservation.nearestStop,
+    };
+
+    return renderRouteItem(routeForRecent, 'recent');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -536,6 +622,10 @@ export default function ScheduleScreen() {
       </View>
 
       <ScrollView style={styles.scrollView}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Journey</Text>
+        </View>
+        {renderRecentJourney()}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>All Routes</Text>
         </View>
@@ -593,6 +683,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   routeCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    overflow: 'hidden',
+  },
+  recentJourneyCard: {
     backgroundColor: 'white',
     marginHorizontal: 16,
     marginBottom: 10,
@@ -692,5 +794,10 @@ const styles = StyleSheet.create({
   locationColumn: {
     flexDirection: 'column',
     flex: 1,
+  },
+  recentJourneyText: {
+    padding: 12,
+    textAlign: 'center',
+    color: '#666',
   },
 });

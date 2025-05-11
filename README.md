@@ -95,4 +95,4 @@ npm run server
 
 ## Contact
 
-For questions or feedback, please reach out to LUK Sin Yu, Angel at [angelluk@connect.hku.hk](mailto:angelluk@connect.hku.hk) or WONG Kwan Lam, Vanessa at [vanwongg@connect.hku.hk] (mailto:vanwongg@connect.hku.hk). 
+For questions or feedback, please reach out to LUK Sin Yu, Angel at [angelluk@connect.hku.hk](mailto:angelluk@connect.hku.hk) or WONG Kwan Lam, Vanessa at [vanwongg@connect.hku.hk](mailto:vanwongg@connect.hku.hk). 

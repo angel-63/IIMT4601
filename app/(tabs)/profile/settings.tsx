@@ -12,22 +12,20 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import axios from 'axios';
-import { useAuth } from '../../../context/auth'; // Adjust path as needed
+import { useAuth } from '../../../context/auth';
 import { API_BASE } from '@/config-api';
 
 const LOCATION_PERMISSION_KEY = '@location_permission';
-// const BACKEND_URL = 'http://localhost:3001';
 const BACKEND_URL = API_BASE;
 
 const SettingsScreen = () => {
   const [darkMode, setDarkMode] = useState(false);
-  const [locationAccessEnabled, setLocationAccessEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [reservationReminder, setReservationReminder] = useState(true);
   const [reservedSeatReminder, setReservedSeatReminder] = useState(false);
   const [allocatedShiftReminder, setAllocatedShiftReminder] = useState(true);
   const [reservedSeatReminderBeforeMinutes, setReservedSeatReminderBeforeMinutes] = useState('15');
-  const { userId, fetchUserData } = useAuth();
+  const { userId, fetchUserData, locationAccessEnabled, setLocationAccessEnabled } = useAuth();
 
   // Fetch user settings on mount
   useEffect(() => {
@@ -38,12 +36,12 @@ const SettingsScreen = () => {
         const userData = response.data.user;
         if (userData.settings) {
           setDarkMode(userData.settings.darkMode ?? false);
-          setLocationAccessEnabled(userData.settings.locationAccessEnabled ?? false);
           setNotificationsEnabled(userData.settings.notificationsEnabled ?? true);
           setReservationReminder(userData.settings.reservationReminder ?? true);
           setReservedSeatReminder(userData.settings.reservedSeatReminder ?? false);
           setAllocatedShiftReminder(userData.settings.allocatedShiftReminder ?? true);
           setReservedSeatReminderBeforeMinutes(userData.settings.reservedSeatReminderBeforeMinutes?.toString() ?? '15');
+          setLocationAccessEnabled(userData.settings.locationAccessEnabled ?? false); // Sync with context
         }
       } catch (error) {
         console.error('Error fetching user settings:', error);
@@ -51,27 +49,7 @@ const SettingsScreen = () => {
       }
     };
     fetchSettings();
-
-    const loadLocationPermission = async () => {
-      try {
-        const savedPermission = await AsyncStorage.getItem(LOCATION_PERMISSION_KEY);
-        if (savedPermission !== null) {
-          const isEnabled = savedPermission === 'true';
-          setLocationAccessEnabled(isEnabled);
-          if (isEnabled) {
-            const { status } = await Location.getForegroundPermissionsAsync();
-            if (status !== 'granted') {
-              setLocationAccessEnabled(false);
-              await AsyncStorage.setItem(LOCATION_PERMISSION_KEY, 'false');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load location permission:', error);
-      }
-    };
-    loadLocationPermission();
-  }, [userId]);
+  }, [userId, setLocationAccessEnabled]);
 
   // Update settings on the backend
   const updateSettings = async (updatedSettings: {
@@ -91,6 +69,7 @@ const SettingsScreen = () => {
     try {
       await axios.post(`${BACKEND_URL}/user/${userId}/settings`, { settings: updatedSettings });
       await fetchUserData(); // Refresh user data
+      await AsyncStorage.setItem(LOCATION_PERMISSION_KEY, updatedSettings.locationAccessEnabled.toString());
     } catch (error) {
       console.error('Error updating settings:', error);
       Alert.alert('Error', 'Failed to update settings on the server.');
@@ -124,6 +103,7 @@ const SettingsScreen = () => {
             [{ text: 'OK', onPress: () => setLocationAccessEnabled(false) }]
           );
           await AsyncStorage.setItem(LOCATION_PERMISSION_KEY, 'false');
+          setLocationAccessEnabled(false);
           return;
         }
       }
@@ -214,18 +194,6 @@ const SettingsScreen = () => {
     <SafeAreaView style={[styles.container, darkMode ? styles.darkContainer : styles.lightContainer]}>
       <StatusBar />
 
-      {/* <View style={styles.section}>
-        <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Appearance</Text>
-        <View style={styles.settingItem}>
-          <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Dark Mode</Text>
-          <Switch
-            value={darkMode}
-            onValueChange={handleDarkModeToggle}
-            trackColor={{ false: '#767577', true: '#FF4444' }}
-          />
-        </View>
-      </View> */}
-
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, darkMode ? styles.darkText : styles.lightText]}>Privacy</Text>
         <View style={styles.settingItem}>
@@ -260,15 +228,6 @@ const SettingsScreen = () => {
               />
             </View>
 
-            {/* <View style={styles.settingItem}>
-              <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Allocated Shift Reminder</Text>
-              <Switch
-                value={allocatedShiftReminder}
-                onValueChange={handleAllocatedShiftReminderToggle}
-                trackColor={{ false: '#767577', true: '#FF4444' }}
-              />
-            </View> */}
-
             <View style={styles.settingItem}>
               <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>Reserved Seat Reminder</Text>
               <Switch
@@ -292,7 +251,6 @@ const SettingsScreen = () => {
                 <Text style={[styles.settingText, darkMode ? styles.darkText : styles.lightText]}>minutes before arrival</Text>
               </View>
             )}
-
           </>
         )}
       </View>

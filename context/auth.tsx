@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE } from '@/config-api';
 
 interface ICardInfo {
@@ -40,19 +41,35 @@ interface AuthContextType {
   isAuthenticated: boolean;
   userId: string | null;
   user: IUser | null;
+  locationAccessEnabled: boolean;
+  setLocationAccessEnabled: (value: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-// const BACKEND_URL = 'http://localhost:3001';   // hardcode for dev
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pendingSignUp, setPendingSignUp] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [user, setUser] = useState<IUser | null>(null);
+  const [locationAccessEnabled, setLocationAccessEnabled] = useState(false);
   const segments = useSegments();
   const router = useRouter();
+
+  // Initialize locationAccessEnabled from AsyncStorage on mount
+  useEffect(() => {
+    const initializeLocationAccess = async () => {
+      try {
+        const storedPermission = await AsyncStorage.getItem('@location_permission');
+        if (storedPermission !== null) {
+          setLocationAccessEnabled(storedPermission === 'true');
+        }
+      } catch (error) {
+        console.error('Error initializing location access:', error);
+      }
+    };
+    initializeLocationAccess();
+  }, []);
 
   const fetchUserData = async () => {
     if (!userId) {
@@ -63,12 +80,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await axios.get(`${API_BASE}/user/${userId}`);
       if (response.data.success) {
-        setUser(response.data.user);
+        const userData = response.data.user;
+        setUser(userData);
+        setLocationAccessEnabled(userData.settings?.locationAccessEnabled ?? false);
+        await AsyncStorage.setItem('@location_permission', (userData.settings?.locationAccessEnabled ?? false).toString());
       } else {
         console.error('Failed to fetch user data:', response.data.message);
         if (response.status === 404) {
           setUser(null);
           setIsAuthenticated(false);
+          setLocationAccessEnabled(false);
+          await AsyncStorage.setItem('@location_permission', 'false');
           router.replace('/(auth)/login');
         }
       }
@@ -77,6 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         setUser(null);
         setIsAuthenticated(false);
+        setLocationAccessEnabled(false);
+        await AsyncStorage.setItem('@location_permission', 'false');
         router.replace('/(auth)/login');
       }
     }
@@ -104,39 +128,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, segments, router, pendingSignUp]);
 
   const signIn = async (email: string, password: string) => {
-  // first call the API; let 401–499 status codes bubble up to catch()
-  let response;
-  try {
-    response = await axios.post(`${API_BASE}/api/login`, { email, password });
-  } catch (e: unknown) {
-    if (axios.isAxiosError(e) && e.response?.data?.message) {
-    throw new Error(e.response.data.message);
+    let response;
+    try {
+      response = await axios.post(`${API_BASE}/api/login`, { email, password });
+    } catch (e: unknown) {
+      if (axios.isAxiosError(e) && e.response?.data?.message) {
+        throw new Error(e.response.data.message);
+      }
+      if (e instanceof Error) {
+        throw e;
+      }
+      throw new Error('Login failed');
     }
-    // If it was already a plain Error (from your response.data.success check), just re-throw it
-    if (e instanceof Error) {
-    throw e;
+
+    if (!response.data.success) {
+      throw new Error(response.data.message);
     }
-    // otherwise fallback
-    throw new Error('Login failed');
-  }
 
-  // now handle application-level failures
-  if (!response.data.success) {
-    // this will have the correct response.data.message
-    throw new Error(response.data.message);
-  }
-
-  // success!
-  setUserId(response.data.userId);
-  setIsAuthenticated(true);
-  router.replace('/(tabs)/schedule');
-};
-
+    setUserId(response.data.userId);
+    setIsAuthenticated(true);
+    router.replace('/(tabs)/schedule');
+  };
 
   const signOut = () => {
     setIsAuthenticated(false);
     setUserId(null);
     setUser(null);
+    setLocationAccessEnabled(false);
+    AsyncStorage.setItem('@location_permission', 'false');
     router.replace('/(auth)/login');
   };
 
@@ -178,8 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       userId,
       user,
+      locationAccessEnabled,
+      setLocationAccessEnabled,
     }),
-    [isAuthenticated, userId, user]
+    [isAuthenticated, userId, user, locationAccessEnabled]
   );
 
   return (
