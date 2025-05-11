@@ -62,6 +62,7 @@ export default function RouteDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [loadingShifts, setLoadingShifts] = useState(false);
+  const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const mapRef = useRef<MapView>(null);
   const markerRef = useRef<Marker>(null);
 
@@ -69,12 +70,31 @@ export default function RouteDetailScreen() {
   const navigation = useNavigation();
   const routeId = params.route_id as string;
   const routeName = params.route_name as string;
+  const stop_id = params.stop_id as string;
+  const stop_name = params.stop_name as string;
+  const latitude = params.stop_latitude as string;
+  const longitude = params.stop_longitude as string;
 
   useEffect(() => {
     navigation.setOptions({
       headerTitle: routeName || 'Route Details',
     });
   }, [navigation, routeName]);
+
+  // Parse initial coordinates from params
+  useEffect(() => {
+    try {
+      const lat = parseFloat(latitude);
+      const lon = parseFloat(longitude);
+      if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+        setInitialCoords({ latitude: lat, longitude: lon });
+      } else {
+        console.warn('Invalid coordinates from params:', { latitude, longitude });
+      }
+    } catch (error) {
+      console.error('Error parsing coordinates:', error);
+    }
+  }, [latitude, longitude]);
 
   // Fetch shifts for live tracker
   const fetchShifts = async () => {
@@ -197,8 +217,8 @@ export default function RouteDetailScreen() {
 
         setRoute(routeData);
         setStops(combinedStops.filter((s) => s.latitude !== 0 && s.longitude !== 0));
-        setSelectedStopId(combinedStops[0]?.stop_id || null);
-        setExpandedStop(combinedStops[0]?.stop_id || null);
+        setSelectedStopId(stop_id || null);
+        setExpandedStop(stop_id || null);
       } catch (error) {
         console.error(error);
         Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
@@ -432,8 +452,8 @@ export default function RouteDetailScreen() {
               ref={mapRef}
               style={styles.map}
               initialRegion={{
-                latitude: stops[0].latitude,
-                longitude: stops[0].longitude,
+                latitude: initialCoords?.latitude,
+                longitude: initialCoords?.longitude,
                 latitudeDelta: 0.008,
                 longitudeDelta: 0.008,
               }}

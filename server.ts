@@ -29,7 +29,9 @@ app.use(cors({ origin: true }));
 // Connect to MongoDB
 const uri = "mongodb+srv://aileen:Enha0420@4601sprint1.9qmij.mongodb.net/user";
 
-mongoose.connect(uri)
+mongoose.connect(uri,
+  {maxIdleTimeMS: 10000,}
+)
   .then(() => console.log('Connected to MongoDB'))
   .catch((error: Error) => console.error('MongoDB connection error:', error.message));
 
@@ -186,12 +188,69 @@ app.listen(PORT, () => {
 });
 
 // GET route list
+/*
 app.get("/routes", async (req: express.Request, res: express.Response) => {
   try {
     const routes = await Route.find({});
     res.status(200).json(routes);
     console.log('Found routes:', routes);
   } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.status(500).json({ message });
+  }
+});
+*/
+app.get("/routes", async (req, res) => {
+  try {
+    const routes = await Route.aggregate([
+      {
+        $lookup: {
+          from: 'stop',
+          localField: 'stops.stop_id',
+          foreignField: 'stop_id',
+          as: 'stopDetails',
+        },
+      },
+      {
+        $project: {
+          route_id: 1,
+          route_name: 1,
+          start: 1,
+          end: 1,
+          fare: 1,
+          stops: {
+            $map: {
+              input: '$stops',
+              as: 'routeStop',
+              in: {
+                $let: {
+                  vars: {
+                    stopDetail: {
+                      $arrayElemAt: [
+                        '$stopDetails',
+                        { $indexOfArray: ['$stopDetails.stop_id', '$$routeStop.stop_id'] }
+                      ]
+                    }
+                  },
+                  in: {
+                    stop_id: '$$routeStop.stop_id',
+                    name: { $ifNull: ['$$stopDetail.name', 'Unknown Stop'] },
+                    latitude: { $ifNull: ['$$stopDetail.latitude', 0] },
+                    longitude: { $ifNull: ['$$stopDetail.longitude', 0] },
+                    arrival_times: '$$routeStop.arrival_times',
+                    order: '$$routeStop.order',
+                    shift_ids: '$$routeStop.shift_ids'
+                  }
+                }
+              }
+            }
+          }
+        },
+      },
+    ]);
+    res.status(200).json(routes);
+    console.log('Found routes:', routes.length);
+  } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     res.status(500).json({ message });
   }
@@ -244,9 +303,10 @@ app.get("/shifts/:routeId", async (req: express.Request, res: express.Response) 
     // Fetch shifts for the given route_id
     const shifts = await Shift.find({ route_id: routeId }).lean();
     if (!shifts || shifts.length === 0) {
-      return res.status(404).json({ message: 'No shifts found for this route' });
+      return console.log('No shifts found for this route');
     }
 
+    /*
     // For each shift, construct the next stop_id and fetch the stop name
     const shiftsWithStopNames = await Promise.all(shifts.map(async (shift) => {
       // Construct stop_id in format ROUTE1-012
@@ -267,6 +327,24 @@ app.get("/shifts/:routeId", async (req: express.Request, res: express.Response) 
         availableSeats: shift.available_seats,
       };
     }));
+    */
+
+    // Collect all stop IDs
+    const stopIds = shifts.map(shift => `${shift.route_id.toUpperCase()}-${String(shift.progress).padStart(3, '0')}`);
+    const uniqueStopIds = [...new Set(stopIds)];
+
+    // Fetch all stops in one query
+    const stops = await Stop.find({ stop_id: { $in: uniqueStopIds } }).lean();
+    const stopMap = new Map(stops.map(stop => [stop.stop_id, stop.name || 'Unknown']));
+
+    const shiftsWithStopNames = shifts.map(shift => {
+      const stopId = `${shift.route_id.toUpperCase()}-${String(shift.progress).padStart(3, '0')}`;
+      return {
+        busNumber: shift.minibus_id,
+        nextStation: stopMap.get(stopId) || 'Unknown',
+        availableSeats: shift.available_seats,
+      };
+    });
 
     res.status(200).json({
       message: 'Shifts retrieved successfully',

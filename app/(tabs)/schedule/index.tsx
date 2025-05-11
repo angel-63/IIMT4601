@@ -29,35 +29,208 @@ interface Route {
   fare?: string;
   duration?: string;
   nextArrival?: string;
+  stops: Stop[];
+  nearestStop?: Stop | null;
 }
 
-// const BACKEND_URL = 'http://localhost:3001';
-const BACKEND_URL = API_BASE;
+interface Stop { 
+  stop_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  arrival_times: string[];
+  order: string;
+  shift_ids: string[];
+}
+
+const LOCATION_PERMISSION_KEY = '@location_permission';
 
 export default function ScheduleScreen() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [expandedRoute, setExpandedRoute] = useState('');
   const [bookmarkLoading, setBookmarkLoading] = useState<{ [key: string]: boolean }>({});
+  const [userAddress, setUserAddress] = useState('-');
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  // const [nearestStop, setNearestStop] = useState<{ stop_id: string; name: string; latitude: number; longitude: number } | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const router = useRouter();
   const navigation = useNavigation();
   const { user, userId, fetchUserData } = useAuth();
 
-  const fetchStopById = async (stopId: string): Promise<Route | null> => {
+  const requestLocationPermission = async () => {
+    try {
+      setIsLoadingLocation(true);
+      console.log('Checking location permission...');
+
+      const storedStatus = await AsyncStorage.getItem(LOCATION_PERMISSION_KEY);
+      console.log(`Stored permission status: ${storedStatus}`);
+
+      if (storedStatus === 'granted') {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === 'granted') {
+          await fetchUserLocation();
+        } else {
+          await AsyncStorage.setItem(LOCATION_PERMISSION_KEY, status);
+          Alert.alert(
+            'Location Access Denied',
+            'Location access is required to show the nearest stop. Please enable it in the app settings.',
+            [{ text: 'Close' }]
+          );
+          setUserAddress('-');
+        }
+      } else if (storedStatus === 'denied') {
+        Alert.alert(
+          'Location Access Needed',
+          'Location access is required to show the nearest stop. Please enable it in the app settings.',
+          [{ text: 'Close' }]
+        );
+        setUserAddress('-');
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log(`New permission status: ${status}`);
+        await AsyncStorage.setItem(LOCATION_PERMISSION_KEY, status);
+
+        if (status === 'granted') {
+          await fetchUserLocation();
+        } else {
+          Alert.alert(
+            'Location Access Denied',
+            'Location access is required to show the nearest stop. Please enable it in the app settings.',
+            [{ text: 'Close' }]
+          );
+          setUserAddress('-');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling location permission:', error);
+      Alert.alert('Error', 'Failed to request location permission.', [{ text: 'Close' }]);
+      setUserAddress('-');
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+  const fetchUserLocation = async () => {
+    try {
+      console.log('Fetching user location...');
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        await AsyncStorage.setItem(LOCATION_PERMISSION_KEY, status);
+        console.log(`Permission not granted: ${status}`);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const { latitude, longitude } = location.coords;
+      setUserLocation({ latitude, longitude });
+      console.log(`Location fetched: ${latitude}, ${longitude}`);
+
+      // Reverse geocode to get exact address
+      const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (geocode.length > 0) {
+        const { streetNumber, street, city, region, country } = geocode[0];
+        const addressParts = [streetNumber, street, city, region, country].filter(Boolean);
+        const address = addressParts.join(', ');
+        setUserAddress(address || 'Unknown Location');
+        console.log(`Updated userAddress: ${address || 'Unknown Location'}`);
+      } else {
+        setUserAddress('Unknown Location');
+        console.log('Updated userAddress: Unknown Location');
+      }
+    } catch (error) {
+      console.error('Error fetching user location or address:', error);
+      setUserAddress('-');
+      Alert.alert('Error', 'Failed to access location or retrieve address.', [{ text: 'Close' }]);
+    }
+  };
+
+  // Calculate nearest bus stop
+  const haversineDistance = (
+    coords1: { latitude: number; longitude: number },
+    coords2: { latitude: number; longitude: number }
+  ): number => {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371e3; // Earth's radius in meters
+
+    const lat1 = toRad(coords1.latitude);
+    const lat2 = toRad(coords2.latitude);
+    const deltaLat = toRad(coords2.latitude - coords1.latitude);
+    const deltaLon = toRad(coords2.longitude - coords1.longitude);
+
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
+
+  const findNearestStop = (
+    userCoords: { latitude: number; longitude: number },
+    stops: Stop[]
+  ): Stop | null => {
+    if (!stops.length) {
+      console.log('No stops available for route');
+      return null;
+    }
+
+    return stops.reduce((nearest, stop) => {
+      if (!stop.latitude || !stop.longitude) {
+        console.log(`Skipping stop ${stop.stop_id}: Invalid coordinates`, stop);
+        return nearest;
+      }
+      const distance = haversineDistance(userCoords, { latitude: stop.latitude, longitude: stop.longitude });
+      if (!nearest || distance < nearest.distance) {
+        return { ...stop, distance };
+      }
+      return nearest;
+    }, { distance: Infinity } as any);
+  };
+
+  /*
+  // Update nearest stop (not userAddress) when location or routes change
+  useEffect(() => {
+    if (userLocation && routes.length > 0) {
+      const allStops = routes.flatMap(route => route.stops);
+      const nearest = findNearestStop(userLocation, allStops);
+      setNearestStop(nearest || routes[0]?.stops[0] || { name: '-' });
+      console.log(`Nearest stop updated: ${nearest?.name || '-'}`);
+    } else if (routes.length > 0) {
+      setNearestStop(routes[0]?.stops[0] || { name: '-' });
+    }
+  }, [userLocation]);
+  */
+
+  // Check permission on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      requestLocationPermission();
+    }, [])
+  );
+
+  const fetchStopById = async (stopId: string): Promise<{ stop_id: string; name: string; latitude: number; longitude: number } | null> => {
     try {
       const baseUrl = await API_BASE;
       const response = await fetch(`${baseUrl}/stops/${stopId}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch stop ${stopId}`);
       }
-      const stopData: Route = await response.json();
-      console.log(`stopData: ${JSON.stringify(stopData)}`)
-      return stopData;
+      const stopData = await response.json();
+      return {
+        stop_id: stopData.stop_id,
+        name: stopData.name,
+        latitude: stopData.latitude || 0,
+        longitude: stopData.longitude || 0,
+      };
     } catch (error) {
       console.error(`Error fetching stop ${stopId}:`, error);
       return null;
     }
   };
 
+  /*
   useEffect(() => {
     const fetchRoutes = async () => {
       try {
@@ -67,14 +240,20 @@ export default function ScheduleScreen() {
         const data = await response.json();
         const fetchedRoutes: Route[] = await Promise.all(
           data.map(async (item: any) => {
-          // Extract first and last stop_id from stops array
             const stops = item.stops || [];
             const firstStopId = stops[0]?.stop_id;
             const lastStopId = stops[stops.length - 1]?.stop_id;
 
-          // Fetch stop details for fromLocation and toLocation
-          const firstStop = firstStopId ? await fetchStopById(firstStopId) : null;
-          const lastStop = lastStopId ? await fetchStopById(lastStopId) : null;
+            const stopDetails = await Promise.all(
+              stops.map(async (stop: any) => {
+                const stopData = await fetchStopById(stop.stop_id);
+                return stopData;
+              })
+            );
+            const validStops = stopDetails.filter((s): s is NonNullable<typeof s> => s !== null);
+
+            const firstStop = validStops.find(s => s.stop_id === firstStopId);
+            const lastStop = validStops.find(s => s.stop_id === lastStopId);
 
             return {
               route_id: item.route_id,
@@ -84,7 +263,9 @@ export default function ScheduleScreen() {
               to: item.end,
               toLocation: lastStop?.name || '-',
               fare: item.fare?.toString(),
+              // need to update to stop_id of nearestStop
               nextArrival: findNextArrival(stops[0]?.arrival_times || []),
+              stops: validStops,
             };
           })
         );
@@ -92,11 +273,59 @@ export default function ScheduleScreen() {
         setRoutes(fetchedRoutes);
       } catch (error) {
         console.error('API Error:', error);
-      Alert.alert('Error', 'Failed to load routes');
+        Alert.alert('Error', 'Failed to load routes', [{ text: 'Close' }]);
       }
     };
     fetchRoutes();
   }, []);
+  */
+
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        const baseUrl = await API_BASE;
+        const response = await fetch(`${baseUrl}/routes`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        console.log(`Route full data:`, JSON.stringify(data)); // Debug stops
+        const fetchedRoutes = data.map((item) => {
+          const stops = item.stops || [];
+          const nearestStopData = userLocation ? findNearestStop(userLocation, stops) : stops[0] || null;
+          console.log(`Route ${item.route_id} stops:`, JSON.stringify(stops, null, 2)); // Debug stops
+          console.log(`Nearest stop for route ${item.route_id}: ${nearestStopData?.name || '-'}`);
+          return {
+            route_id: item.route_id,
+            name: item.route_name,
+            from: item.start,
+            fromLocation: stops[0]?.name || '-',
+            to: item.end,
+            toLocation: stops[stops.length - 1]?.name || '-',
+            fare: item.fare?.toString(),
+            nextArrival: findNextArrival(nearestStopData?.arrival_times || []),
+            stops: item.stops,
+            nearestStop: nearestStopData
+          };
+        });
+        setRoutes(fetchedRoutes);
+  
+        // Cache routes locally
+        await AsyncStorage.setItem('routes', JSON.stringify(fetchedRoutes));
+      } catch (error) {
+        console.error('API Error:', error);
+        Alert.alert('Error', 'Failed to load routes', [{ text: 'Close' }]);
+      }
+    };
+  
+    // Check cache first
+    const loadCachedRoutes = async () => {
+      const cachedRoutes = await AsyncStorage.getItem('routes');
+      if (cachedRoutes) {
+        setRoutes(JSON.parse(cachedRoutes));
+      }
+      fetchRoutes();
+    };
+    loadCachedRoutes();
+  }, [userLocation]);
 
   const toggleBookmark = async (routeId: string) => {
     if (!userId) {
@@ -106,7 +335,8 @@ export default function ScheduleScreen() {
 
     setBookmarkLoading((prev) => ({ ...prev, [routeId]: true }));
     try {
-      await axios.post(`${BACKEND_URL}/user/${userId}/bookmark`, { routeId });
+      const baseUrl = await API_BASE;
+      await axios.post(`${baseUrl}/user/${userId}/bookmark`, { routeId });
       await fetchUserData();
     } catch (error) {
       console.error('Error toggling bookmark:', error);
@@ -183,6 +413,10 @@ export default function ScheduleScreen() {
     const routeKey = `${route.from} → ${route.to}`;
     const { diffMinutes, suffix } = getMinutesToArrival(route.nextArrival || '-');
     const isBookmarked = user?.bookmarked?.includes(route.route_id) || false;
+    // Use userLocation if available; otherwise, use first stop's coordinates
+    const latitude = userLocation?.latitude ?? route.stops[0]?.latitude ?? 0;
+    const longitude = userLocation?.longitude ?? route.stops[0]?.longitude ?? 0;
+    const nearestStop = route.nearestStop || route.stops[0] || { stop_id: '', name: '-', latitude: 0, longitude: 0 };
 
     const handleRoutePress = () => {
       router.push({
@@ -190,12 +424,20 @@ export default function ScheduleScreen() {
         params: {
           route_id: route.route_id,
           route_name: `${route.from} → ${route.to}`,
+          stop_id: nearestStop.stop_id || '',
+          stop_name: nearestStop.name || '',
+          stop_latitude: nearestStop.latitude?.toString() || '0',
+          stop_longitude: nearestStop.longitude?.toString() || '0',
         },
       });
 
       console.log(`Navigating to routeDetail with params:`, {
         route_id: route.route_id,
         route_name: `${route.from} ↔ ${route.to}`,
+        // latitude: latitude.toString(),
+        // longitude: longitude.toString(),
+        stop_id: nearestStop.stop_id || '',
+        stop_name: nearestStop.name || '',
       });
     };
 
@@ -263,6 +505,12 @@ export default function ScheduleScreen() {
                 <Text style={styles.fareAmount}>{route.fare}</Text>
               </View>
             )}
+            {nearestStop.name && (
+              <View style={[styles.fareInfo, { flexDirection: 'row', alignContent: 'center' }]}>
+                <Text style={styles.fareLabel}>Nearest Stop: </Text>
+                <Text style={[styles.fareAmount, {fontSize: 12}]}>{nearestStop.name}</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -283,7 +531,7 @@ export default function ScheduleScreen() {
         </View>
         <View style={styles.locationContainer}>
           <Ionicons name="location" size={20} color="white" />
-          <Text style={styles.locationText}>Tung Choi St., Mong Kok</Text>
+          <Text style={styles.locationText}>{userAddress}</Text>
         </View>
       </View>
 
@@ -365,7 +613,7 @@ const styles = StyleSheet.create({
   },
   routeMainInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   routeName: {
     fontSize: 16,
@@ -373,7 +621,6 @@ const styles = StyleSheet.create({
   },
   infoButton: {
     marginLeft: 4,
-    marginTop: '-5%',
   },
   routeSubInfo: {
     flexDirection: 'row',
@@ -419,11 +666,11 @@ const styles = StyleSheet.create({
   },
   fareInfo: {
     marginTop: 8,
+    alignItems: 'center'
   },
   fareLabel: {
     fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   fareAmount: {
     fontSize: 14,
@@ -444,7 +691,6 @@ const styles = StyleSheet.create({
   },
   locationColumn: {
     flexDirection: 'column',
-    alignItems: 'flex-start',
     flex: 1,
   },
 });

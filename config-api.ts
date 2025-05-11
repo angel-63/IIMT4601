@@ -13,4 +13,5 @@
 //     }
 //   };
 
-export const API_BASE = 'https://iimt-4601-gb7xpzwxq-angelluk63s-projects.vercel.app';
+// export const API_BASE = 'https://iimt-4601-gb7xpzwxq-angelluk63s-projects.vercel.app';
+export const API_BASE = 'http://localhost:3001';
