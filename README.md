@@ -98,6 +98,9 @@ npm run server
    ```
 2. **Open build**: Click on the downloaded app icon on the simulator. 
 
+**Remark**: 
+* **Map interaction**: Press "shift" with drag and drop and perform zoom in and zoom out. 
+
 ## Contact
 
 For questions or feedback, please reach out to LUK Sin Yu, Angel at [angelluk@connect.hku.hk](mailto:angelluk@connect.hku.hk) or WONG Kwan Lam, Vanessa at [vanwongg@connect.hku.hk](mailto:vanwongg@connect.hku.hk). 

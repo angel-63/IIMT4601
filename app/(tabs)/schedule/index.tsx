@@ -371,6 +371,8 @@ export default function ScheduleScreen() {
           stop_name: nearestStop.name || '',
           stop_latitude: nearestStop.latitude?.toString() || '0',
           stop_longitude: nearestStop.longitude?.toString() || '0',
+          user_latitude: latitude?.toString() || '0',
+          user_longitude: longitude?.toString() || '0',
         },
       });
 
