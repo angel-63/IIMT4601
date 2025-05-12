@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  ActivityIndicator, 
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
@@ -309,8 +310,12 @@ const MyTripsScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <ScrollView style={styles.content}>
-        {loading ? (
-          <Text style={{ padding: 16 }}>Loading...</Text>
+          {loading ? (
+            <ActivityIndicator
+            size="large"
+            color="#FF4444"
+            style={styles.loading}
+          />
         ) : data.length === 0 ? (
           <Text style={{ padding: 16 }}>No reservations found.</Text>
         ) : (
@@ -448,6 +453,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
 });
 

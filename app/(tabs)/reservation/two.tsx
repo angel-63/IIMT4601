@@ -8,6 +8,7 @@ import RoutePicker from '@/components/RoutePicker';
 import { useEffect, useState, useRef } from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../../../context/auth';
 
 type TwoParams = {
   selectedStop?: string;
@@ -30,6 +31,7 @@ type ReservationParamList = {
     pickUp: string;
     dropOff: string;
   };
+  '(tabs)/payment': undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<ReservationParamList>;
@@ -38,6 +40,7 @@ export default function TabTwoScreen() {
   const params = useLocalSearchParams<TwoParams>();
   const router = useRouter();
   const navigation = useNavigation<NavigationProp>();
+  const { userId, user, fetchUserData } = useAuth();
 
   const [form, setForm] = useState({
     route_id: '',
@@ -47,9 +50,29 @@ export default function TabTwoScreen() {
     pickUp: 'Stops',
     dropOff: 'Stops',
   });
+  const [loading, setLoading] = useState(false);
   const isFirstMount = useRef(true);
 
-  // Prefill Book-Again fields once
+  // Fetch user data when component mounts or regains focus
+  useEffect(() => {
+    const fetchData = async () => {
+      if (userId && !user) {
+        setLoading(true);
+        await fetchUserData();
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchData(); // Refresh user data when screen is focused
+    });
+
+    return unsubscribe;
+  }, [userId, navigation, user, fetchUserData]);
+
+  // Prefill Book-Again fields
   useEffect(() => {
     if (isFirstMount.current) {
       const { route_id: rId, time: t, seat: s, pickUp: pu, dropOff: doff } = params;
@@ -91,10 +114,15 @@ export default function TabTwoScreen() {
     navigation.setOptions({
       headerTitle: () => (
         <RoutePicker
-          selectedRoute={form.route_id}
-          onSelect={routeId =>
-            setForm({ route_id: routeId, date: '', time: '', seat: 1, pickUp: 'Stops', dropOff: 'Stops' })
+          onSelect={(routeId) =>
+            setForm(prev => ({
+              ...prev,
+              route_id: routeId,
+              pickUp: 'Stops', // Reset pickUp when route changes
+              dropOff: 'Stops', // Reset dropOff when route changes
+            }))
           }
+          selectedRoute={form.route_id}
         />
       ),
     });
@@ -126,6 +154,29 @@ export default function TabTwoScreen() {
 
   const confirmReservation = () => {
     if (!validateForm()) return;
+
+    const cardInfo = user?.cardInfo;
+    if (!cardInfo || Object.keys(cardInfo).length === 0) {
+      Alert.alert(
+        'Payment Information Required',
+        'Please add your card information to proceed with the reservation.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Add Card Info',
+            onPress: () => {
+              router.push('/(tabs)/profile/payment');
+            },
+            style: 'default',
+          },
+        ]
+      );
+      return;
+    }
+
     router.push({
       pathname: '/reservation/confirmReservation',
       params: {
@@ -188,10 +239,13 @@ export default function TabTwoScreen() {
 
       <View style={[styles.buttonContainer, { flex: 1 }]}>
         <Pressable
-          style={({ pressed }) => [styles.payButton, { opacity: pressed ? 0.5 : 1 }]}
+          style={({ pressed }) => [styles.payButton, { opacity: pressed || loading ? 0.5 : 1 }]}
           onPress={confirmReservation}
+          disabled={loading}
         >
-          <Text style={{ color: 'white', textAlign: 'center' }}>Proceed</Text>
+          <Text style={{ color: 'white', textAlign: 'center' }}>
+            {loading ? 'Loading...' : 'Proceed'}
+          </Text>
         </Pressable>
       </View>
     </View>

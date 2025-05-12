@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Animated, 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
@@ -51,30 +52,56 @@ type Shift = {
 };
 
 export default function RouteDetailScreen() {
+  const params = useLocalSearchParams();
+  const navigation = useNavigation();
+  const routeId = params.route_id as string;
+  const routeName = params.route_name as string;
+  const stop_id = params.stop_id as string;
+  const stop_name = params.stop_name as string;
+  const stop_latitude = params.stop_latitude as string;
+  const stop_longitude = params.stop_longitude as string;
+  const user_latitude = params.user_latitude as string;
+  const user_longitude = params.user_longitude as string;
+
   const [activeTab, setActiveTab] = useState('arrivalSchedule');
   const [route, setRoute] = useState<Route | null>(null);
   const [stops, setStops] = useState<CombinedStop[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [expandedStop, setExpandedStop] = useState<string | null>(null);
-  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(stop_id);
   const [routeCoords, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const [isLoadingRoute, setIsLoadingRoute] = useState(true);
   const [loading, setLoading] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [loadingShifts, setLoadingShifts] = useState(false);
+  const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const mapRef = useRef<MapView>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const markerRef = useRef<Marker>(null);
+  const [stopPositions, setStopPositions] = useState<{ [key: string]: number }>({});
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const params = useLocalSearchParams();
-  const navigation = useNavigation();
-  const routeId = params.route_id as string;
-  const routeName = params.route_name as string;
 
   useEffect(() => {
     navigation.setOptions({
       headerTitle: routeName || 'Route Details',
     });
   }, [navigation, routeName]);
+
+  // Parse initial coordinates from params
+  useEffect(() => {
+    try {
+      const lat = parseFloat(stop_latitude);
+      const lon = parseFloat(stop_longitude);
+      if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+        setInitialCoords({ latitude: lat, longitude: lon });
+      } else {
+        console.warn('Invalid coordinates from params:', { stop_latitude, stop_longitude });
+      }
+    } catch (error) {
+      console.error('Error parsing coordinates:', error);
+    }
+  }, [stop_latitude, stop_longitude]);
 
   // Fetch shifts for live tracker
   const fetchShifts = async () => {
@@ -86,10 +113,11 @@ export default function RouteDetailScreen() {
         throw new Error('Failed to fetch shifts');
       }
       const data = await response.json();
-      setShifts(data.shifts || []);
+      const validShifts = (data.shifts || []).filter((shift: Shift) => shift.nextStation !== 'Unknown');
+      setShifts(validShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
-      Alert.alert('Error', 'Failed to load live tracker data');
+      // Alert.alert('Error', 'Failed to load live tracker data');
     } finally {
       setLoadingShifts(false);
     }
@@ -197,8 +225,8 @@ export default function RouteDetailScreen() {
 
         setRoute(routeData);
         setStops(combinedStops.filter((s) => s.latitude !== 0 && s.longitude !== 0));
-        setSelectedStopId(combinedStops[0]?.stop_id || null);
-        setExpandedStop(combinedStops[0]?.stop_id || null);
+        setSelectedStopId(stop_id || null);
+        setExpandedStop(stop_id || null);
       } catch (error) {
         console.error(error);
         Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
@@ -281,6 +309,50 @@ export default function RouteDetailScreen() {
     setExpandedStop(expandedStop === stopId ? null : stopId);
     setSelectedStopId(stopId);
   };
+
+  // Move map to user position
+  const moveToUserPosition = useCallback(() => {
+    try {
+      const lat = parseFloat(user_latitude);
+      const lon = parseFloat(user_longitude);
+      if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0 && mapRef.current) {
+        mapRef.current.animateToRegion(
+          {
+            latitude: lat,
+            longitude: lon,
+            latitudeDelta: 0.008,
+            longitudeDelta: 0.008,
+          },
+          500
+        );
+      } else {
+        console.warn('Invalid user coordinates:', { user_latitude, user_longitude });
+        Alert.alert('Error', 'Unable to locate your position');
+      }
+    } catch (error) {
+      console.error('Error moving to user position:', error);
+      Alert.alert('Error', 'Failed to move to your position');
+    }
+  }, [user_latitude, user_longitude]);
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   // Utility function to calculate minutes to arrival
   const getMinutesToArrival = (arrivalTime: string): any => {
@@ -428,12 +500,13 @@ export default function RouteDetailScreen() {
           <ActivityIndicator size="large" color="#e05d44" style={styles.loading} />
         ) : stops.length > 0 ? (
           !isLoadingRoute ? (
+            <>
             <MapView
               ref={mapRef}
               style={styles.map}
               initialRegion={{
-                latitude: stops[0].latitude,
-                longitude: stops[0].longitude,
+                latitude: initialCoords?.latitude,
+                longitude: initialCoords?.longitude,
                 latitudeDelta: 0.008,
                 longitudeDelta: 0.008,
               }}
@@ -481,10 +554,34 @@ export default function RouteDetailScreen() {
                   lineCap="round"
                 />
               )}
+              <Marker
+                  coordinate={{
+                    latitude: parseFloat(user_latitude),
+                    longitude: parseFloat(user_longitude),
+                  }}
+                >
+                  <View style={styles.userMarker}>
+                    <View style={styles.userMarkerOuter} />
+                    <Animated.View
+                      style={[
+                        styles.userMarkerInner,
+                        { transform: [{ scale: pulseAnim }] },
+                      ]}
+                    />
+                  </View>
+              </Marker>
             </MapView>
+            <TouchableOpacity
+              style={styles.userLocationButton}
+              onPress={moveToUserPosition}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="locate" size={24} color="#fff" />
+            </TouchableOpacity>
+            </>
           ) : (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#3065F6" />
+              <ActivityIndicator size="large" color="#FF4444" />
             </View>
           )
         ) : (
@@ -710,5 +807,46 @@ const styles = StyleSheet.create({
   busStatus: {
     fontSize: 13,
     color: '#666',
+  },
+  userLocationButton: {
+    position: 'absolute',
+    bottom: 60,
+    right: 10,
+    backgroundColor: '#FF4444',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  userMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
+  },
+  userMarkerOuter: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  userMarkerInner: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 7,
+    backgroundColor: '#4285F4',
   },
 });

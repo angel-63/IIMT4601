@@ -33,6 +33,13 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "permissions": {
+      "location": {
+        "foreground": {
+          "description": "Allow the app to access your location to show the nearest transit stop and provide personalized navigation."
+        }
+      }
     }
   }
 }

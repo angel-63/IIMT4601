@@ -1,11 +1,13 @@
 # IIMT4601
 # Chiu Luen Minibus App
 
-A mobile application for Chiu Luen Light Bus Operation that allows users to view real-time schedules, make reservations, and receive automated push notifications and GPS-based nearest-stop suggestions. Built with the MERN stack and Expo, this project streamlines booking, reduces no-shows, and enhances the passenger experience.
+A mobile application for Chiu Luen Light Bus Operation that allows users to view real-time schedules and make reservations. Built with the MERN stack and Expo, this project streamlines booking, improve information transparency and enhances the passenger experience. 
 
 ## Features
 
-* **Real-Time Schedule**: Browse up-to-date arrival times for all routes.
+* **Real-Time Schedule**: 
+  * Browse up-to-date arrival times for all routes.
+  * Bookmark your regular route. 
 * **Reservation**: Reserve online for seats before the journey. 
 * **Push Notifications**:
   * Reservation reminder: 15 minutes before departure. 
@@ -22,12 +24,15 @@ A mobile application for Chiu Luen Light Bus Operation that allows users to view
 * **Frontend**: React Native (Expo), Expo Router
 * **Notifications**: Expo Push Notifications, Axios for API calls
 * **Location**: Expo Location, React Native Maps
+* **Map**: OpenStreetMap (OSM), Open Source Routing Machine (ORSM)
+* **Hosting**: Vercel
 
 ## Prerequisites
 
 * **Node.js** v16+ and **npm**
 * **Expo CLI**
-* **Xcode** (for iOS Simulator) or **Android Studio** (for Android Emulator)
+* **Xcode** (for iOS Simulator) [Recommended] or **Android Studio** (for Android Emulator)
+* **MongoDB Atlas** or local MongoDB for development
 
 ## Installation
 
@@ -44,20 +49,7 @@ npm install
 
 ```bash
 npm run server
-# ensure it listens on 0.0.0.0:3000
 ```
-
-## Running the Mobile App
-
-1. **Start Metro**:
-
-   ```bash
-   npm start // npm expo run:ios --device
-   ```
-2. **iOS Simulator**: press `i` or click **Run on iOS simulator** in Expo DevTools.
-3. **Android Emulator**: press `a` or click **Run on Android device/emulator**.
-4. **Physical Device**: scan the QR code with Expo Go (ensure same network or use `--tunnel`).
-
 
 ## Running Real-Time Estimation Computation (Back-end)
 
@@ -73,7 +65,7 @@ npm run server
    # 3.11.5 is recommended
    python3 --version
    ```
-3. **Open 2 Saparate Terminals and Start Scripts**: Do not reuse the terminal used for Step 1 and Step 2.
+3. **Open 2 Separate Terminals and Start Scripts**: Do not reuse the terminal used for Step 1 and Step 2.
 
    ```bash
    # On first terminal
@@ -86,11 +78,28 @@ npm run server
    Repeat Step 3.
    Cold start problem exist and may occur occasionally.
 
-## Troubleshooting
 
-* **Network Error on device**: ensure `API_BASE_DEV` points to your computer’s LAN IP and server listens on `0.0.0.0`. Use `expo start --lan` or `--tunnel`.
-* **Peer dependency errors**: run `npm install --legacy-peer-deps`.
-* **Push token not showing**: test on a physical device and `console.log` the token in `notificationHandler.ts`.
+## Running the Mobile App
+
+### Method 1: Expo Go [Recommended]
+1. **Start Metro**:
+
+   ```bash
+   npm start // npm expo run:ios --device
+   ```
+2. **iOS Simulator**: press `i` or click **Run on iOS simulator** in Expo DevTools.
+3. **Android Emulator**: press `a` or click **Run on Android device/emulator**.
+
+### Method 2: Development build (for iOS Simulator only)
+1. **Start Metro**:
+
+   ```bash
+   npm expo run:ios --device
+   ```
+2. **Open build**: Click on the downloaded app icon on the simulator. 
+
+**Remark**: 
+* **Map interaction**: Press "shift" with drag and drop and perform zoom in and zoom out. 
 
 ## Contact
 
